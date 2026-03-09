@@ -68,6 +68,7 @@ dependencies {
   implementation(libs.mwdat.mockdevice)
     // retrofit
   //implementation("com.squareup.retrofit2:retrofit:3.1.0-SNAPSHOT")
+  implementation("com.squareup.retrofit2:retrofit:2.11.0")
   androidTestImplementation(libs.androidx.ui.test.junit4)
   androidTestImplementation(libs.androidx.test.uiautomator)
   androidTestImplementation(libs.androidx.test.rules)

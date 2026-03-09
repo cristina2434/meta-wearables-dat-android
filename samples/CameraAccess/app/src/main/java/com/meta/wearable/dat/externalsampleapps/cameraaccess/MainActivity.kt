@@ -20,17 +20,26 @@ package com.meta.wearable.dat.externalsampleapps.cameraaccess
 import android.Manifest.permission.BLUETOOTH
 import android.Manifest.permission.BLUETOOTH_CONNECT
 import android.Manifest.permission.INTERNET
+import android.graphics.Paint
 import android.os.Bundle
+import android.widget.VideoView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Button
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+
 import com.meta.wearable.dat.core.Wearables
 import com.meta.wearable.dat.core.types.Permission
 import com.meta.wearable.dat.core.types.PermissionStatus
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.ui.CameraAccessScaffold
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.retrofit.VideoViewModel    // Importar mi viewModel
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -44,7 +53,7 @@ class MainActivity : ComponentActivity() {
   }
 
   val viewModel: WearablesViewModel by viewModels()
-
+  val videoViewModel: VideoViewModel by viewModels()    // Inicializar viewModel
   private var permissionContinuation: CancellableContinuation<PermissionStatus>? = null
   private val permissionMutex = Mutex()
   // Requesting wearable device permissions via the Meta AI app
@@ -79,6 +88,14 @@ class MainActivity : ComponentActivity() {
 
       // Start observing Wearables state after SDK is initialized
       viewModel.startMonitoring()
+
+      // Probar flujo Retrofit
+
+      // Simular que MockDeviceKit ya ha grabado un clip y devuelve los bytes
+      val fakeVideo = "fake_video_mp4".toByteArray()
+
+      // LLamar a la funcion de guardar y enviar
+      videoViewModel.processSendVideo(this, fakeVideo)
     }
 
     setContent {
@@ -86,6 +103,7 @@ class MainActivity : ComponentActivity() {
           viewModel = viewModel,
           onRequestWearablesPermission = ::requestWearablesPermission,
       )
+
     }
   }
 
