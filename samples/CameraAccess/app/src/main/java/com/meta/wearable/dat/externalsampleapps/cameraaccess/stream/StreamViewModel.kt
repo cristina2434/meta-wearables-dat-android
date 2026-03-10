@@ -18,6 +18,7 @@
 package com.meta.wearable.dat.externalsampleapps.cameraaccess.stream
 
 import android.app.Application
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -54,6 +55,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.retrofit.RetrofitClient
 class StreamViewModel(
     application: Application,
     private val wearablesViewModel: WearablesViewModel,
@@ -109,6 +114,53 @@ class StreamViewModel(
     _uiState.update { INITIAL_STATE }
   }
 
+  fun saveCurrentFrame(context: Context) {
+    // Obtener el fotorgrama exacto que se esta mostrando en pantalla
+    val currentBitmap = uiState.value.videoFrame
+
+    if(currentBitmap != null) {
+      viewModelScope.launch {
+        try {
+          // Crear archivo temporal en la memoria cache del movil
+          val photoFile = File(context.cacheDir, "test_frame_${System.currentTimeMillis()}.jpg")
+
+          // Escribir (comprimir) la imagen dentro de este archivo fisico
+          FileOutputStream(photoFile).use { out->
+            currentBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+
+          }
+
+          // Mensajes de exito
+          println("¡Éxito! Fotograma interceptado y guardado en: ${photoFile.absolutePath}")
+          println("Tamaño del archivo: ${photoFile.length() / 1024} KB")
+
+          // En un futuro llamar a RetrofitClient para enviar este archivo
+          // Enviar el fotograma capturado por Retrofit
+          println("Empaquetando la imagen para enviarla")
+          val requestBody = photoFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
+          val multipartPackage = MultipartBody.Part.createFormData(
+            "archivo_imagen", //
+            photoFile.name,
+            requestBody
+          )
+
+          println("Enviando al servidor a traves de Retrofit")
+          // Llamar a la API
+          val response = RetrofitClient.api.uploadFile(multipartPackage)
+          if(response.isSuccessful) {
+            println("¡Subida al servidor completada con exito!")
+          }
+          else {
+            println("Error del servidor: Codigo ${response.code()}")
+          }
+        } catch (e: Exception) {
+          println("Error al guardar el fotograma: ${e.message}")
+        }
+      }
+    } else {
+      println("No hay ningun fotograma de video disponible para guardar")
+    }
+  }
   fun capturePhoto() {
     if (uiState.value.isCapturing) {
       Log.d(TAG, "Photo capture already in progress, ignoring request")

@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Button
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.lifecycleScope
 
 import com.meta.wearable.dat.core.Wearables
 import com.meta.wearable.dat.core.types.Permission
@@ -40,8 +41,11 @@ import com.meta.wearable.dat.core.types.PermissionStatus
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.ui.CameraAccessScaffold
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.retrofit.VideoViewModel    // Importar mi viewModel
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.StreamViewModel
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -54,6 +58,10 @@ class MainActivity : ComponentActivity() {
 
   val viewModel: WearablesViewModel by viewModels()
   val videoViewModel: VideoViewModel by viewModels()    // Inicializar viewModel
+
+    val streamViewModel: StreamViewModel by viewModels {
+        StreamViewModel.Factory(application, viewModel)
+    }
   private var permissionContinuation: CancellableContinuation<PermissionStatus>? = null
   private val permissionMutex = Mutex()
   // Requesting wearable device permissions via the Meta AI app
@@ -89,6 +97,7 @@ class MainActivity : ComponentActivity() {
       // Start observing Wearables state after SDK is initialized
       viewModel.startMonitoring()
 
+        /*
       // Probar flujo Retrofit
 
       // Simular que MockDeviceKit ya ha grabado un clip y devuelve los bytes
@@ -96,6 +105,16 @@ class MainActivity : ComponentActivity() {
 
       // LLamar a la funcion de guardar y enviar
       videoViewModel.processSendVideo(this, fakeVideo)
+        */
+      // Prueba automatica fotograma
+      lifecycleScope.launch {
+
+          println("Esperando 20 segundos para hacer la captura")
+          delay(20000)
+
+          println("Capturando fotograma ahora")
+          streamViewModel.saveCurrentFrame(this@MainActivity)
+      }
     }
 
     setContent {
