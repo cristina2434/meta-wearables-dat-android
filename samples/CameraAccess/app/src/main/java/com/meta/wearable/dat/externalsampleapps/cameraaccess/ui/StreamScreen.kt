@@ -40,11 +40,16 @@ import com.meta.wearable.dat.camera.types.StreamSessionState
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.R
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.StreamViewModel
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
-
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.retrofit.FileViewModel
+import kotlinx.coroutines.launch
 @Composable
+// Cambio la declaracion para usar mi ViewModel
 fun StreamScreen(
     wearablesViewModel: WearablesViewModel,
     modifier: Modifier = Modifier,
+    fileViewModel: FileViewModel = viewModel(),
     streamViewModel: StreamViewModel =
         viewModel(
             factory =
@@ -55,6 +60,13 @@ fun StreamScreen(
         ),
 ) {
   val streamUiState by streamViewModel.uiState.collectAsStateWithLifecycle()
+
+  // Permitir lanzar tareas en segundo plano (corrutinas) al pulsar un boton,
+  // sin congelar la interfaz grafica.
+  val coroutineScope = rememberCoroutineScope()
+  // Obtiene el entorno actual de Android. Se necesita obligatoriamente para
+  // informar a FileUtils donde esta la carpeta fisica de cache del telefono
+  val context = LocalContext.current
 
   LaunchedEffect(Unit) { streamViewModel.startStream() }
 
@@ -95,7 +107,25 @@ fun StreamScreen(
 
         // Photo capture button
         CaptureButton(
-            onClick = { streamViewModel.capturePhoto() },
+            onClick = {
+                //streamViewModel.capturePhoto()
+                // Lanzar corrutina al pulsar el boton
+                coroutineScope.launch {
+                    println("[StreamScreen] Boton pulsado: iniciando flujo de captura y envio")
+
+                    // Interceptar y guardar la imagen
+                    val saveFile = streamViewModel.saveCurrentFrame(context)
+
+                    // Si se ha guardado bien, pedimos al gestor de red que envie el archivo fisico
+                    if (saveFile != null) {
+                        fileViewModel.sendFile(
+                            physicalFile = saveFile,
+                            typeMime = "image/jpeg",
+                            nameBackend = "archivo_imagen"
+                        )
+                    }
+                }
+            },
         )
       }
     }

@@ -39,7 +39,7 @@ import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.StreamViewMo
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
+//import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -101,6 +101,7 @@ class MainActivity : ComponentActivity() {
       videoViewModel.processSendVideo(this, fakeVideo)
         */
       // Prueba automatica fotograma
+        /*
       lifecycleScope.launch {
 
           println("[MainActivity]Esperando 20 segundos para hacer la captura")
@@ -119,7 +120,7 @@ class MainActivity : ComponentActivity() {
                   nameBackend = "archivo_imagen"
               )
           }
-      }
+      }*/
     }
 
     setContent {
