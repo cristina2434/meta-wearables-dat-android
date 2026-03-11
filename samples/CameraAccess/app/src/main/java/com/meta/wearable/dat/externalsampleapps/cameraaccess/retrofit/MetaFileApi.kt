@@ -6,6 +6,12 @@ import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Part
 
+/**
+ * Interfaz de red
+ * Define las rutas y metodos HTTP que usa la aplicacion para hablar con el backend.
+ * Retrofit leera las etiquetas (@Multipart, @POST) y construira las peticiones
+ * automaticamente por debajo
+ */
 interface FileApiService {
 
     // Para que Retrofit sepa que se va a enviar un archivo (Multipart)

@@ -15,6 +15,7 @@
 // - Request camera permissions from wearable devices (Ray-Ban Meta glasses)
 // - Stream video and capture photos from connected wearable devices
 
+
 package com.meta.wearable.dat.externalsampleapps.cameraaccess
 
 import android.Manifest.permission.BLUETOOTH
@@ -102,15 +103,15 @@ class MainActivity : ComponentActivity() {
       // Prueba automatica fotograma
       lifecycleScope.launch {
 
-          println("Esperando 20 segundos para hacer la captura")
+          println("[MainActivity]Esperando 20 segundos para hacer la captura")
           delay(20000)
 
-          println("Capturando fotograma ahora")
+          println("[MainActivity]Capturando fotograma ahora")
 
-          // StreamViewModel guarda la foto
+          // StreamViewModel intercepta y guarda la imagen
           val saveFile = streamViewModel.saveCurrentFrame(this@MainActivity)
 
-          // Si se ha guardado bien, pedimos a videoViewModel que lo envie
+          // Si se ha guardado bien, pedimos al gestor de red que envie el archivo fisico
           if(saveFile != null) {
               videoViewModel.sendFile(
                   physicalFile = saveFile,

@@ -9,6 +9,12 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
 
+/**
+ * Conecta la interfaz con las herramientas. Gestor de envios.
+ * Se encarga de empaquetar archivos fisicos en formato Multipart
+ * y coordinar su envio al servidor a traves de Retrofit.
+ * Es generico: puede enviar fotos, videos o cualquier otro tipo de archivo (MIME type).
+ */
 class FileViewModel : ViewModel() {
 
     // Funcion principal que sirve para cualquier tipo de archivo (foto, videos,audios)
@@ -16,7 +22,7 @@ class FileViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 // Empaquetar el archivo para Retrofit
-                println("Empaquetando archivo: ${physicalFile.name} ($typeMime)")
+                println("[FileViewModel]Empaquetando archivo: ${physicalFile.name} ($typeMime)")
                 val requestBody = physicalFile.asRequestBody(typeMime.toMediaTypeOrNull())
 
                 val multipartPackage = MultipartBody.Part.createFormData(
@@ -26,19 +32,19 @@ class FileViewModel : ViewModel() {
                 )
 
                 // Enviar a la API
-                println("Enviando al servidor a traves de Retrofit")
+                println("[FileViewModel]Enviando al servidor a traves de Retrofit")
                 val response = RetrofitClient.api.uploadFile(multipartPackage)
 
                 if (response.isSuccessful) {
-                    println("¡Éxito! Archivo enviado correctamente.")
+                    println("[FileViewModel]¡Éxito! Archivo enviado correctamente.")
                     // Opcional, borrar  el archivo local para no ocupar espacio
                     // localFile.delete()
                 }
                 else {
-                    println("Error del servidor: Codigo ${response.code()}")
+                    println("[FileViewModel]Error del servidor: Codigo ${response.code()}")
                 }
             } catch (e: Exception) {
-                println("Error de red o de proceso: ${e.localizedMessage}")
+                println("[FileViewModel]Error de red o de proceso: ${e.localizedMessage}")
             }
         }
     }

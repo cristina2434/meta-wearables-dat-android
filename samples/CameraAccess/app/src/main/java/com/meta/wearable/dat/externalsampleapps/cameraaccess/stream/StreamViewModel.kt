@@ -15,6 +15,12 @@
 // - Handling different video qualities and formats
 // - Processing raw video data (I420 -> NV21 conversion)
 
+/**
+ * Viewmodel de streaming y hardware (gafas meta)
+ * Se encarga de gestionar la conexion con las gafas (o el MockDeviceKit),
+ * recibir el flujo de video en tiempo real y manejar la captura de fotogramas.
+ * No sabe nada de red (Retrofit), su unico objetivo es interactuar con el dispositivo.
+ */
 package com.meta.wearable.dat.externalsampleapps.cameraaccess.stream
 
 import android.app.Application
@@ -42,6 +48,7 @@ import com.meta.wearable.dat.camera.types.VideoFrame
 import com.meta.wearable.dat.camera.types.VideoQuality
 import com.meta.wearable.dat.core.Wearables
 import com.meta.wearable.dat.core.selectors.DeviceSelector
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.retrofit.FileUtils
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
 import kotlinx.coroutines.Dispatchers
 import java.io.ByteArrayInputStream
@@ -117,30 +124,12 @@ class StreamViewModel(
     // Obtener el fotorgrama exacto que se esta mostrando en pantalla
     val currentBitmap = uiState.value.videoFrame
 
-    if(currentBitmap != null) {
-      // withContext(Dispatchers.IO) mueve esta tarea a un hilo secundario
-      // optimizado para leer y escribir archivos, sin tocar la interfaz grafica
-      return withContext(Dispatchers.IO) {
-        try {
-          // Crear archivo temporal en la memoria cache del movil
-          val photoFile = File(context.cacheDir, "test_frame_${System.currentTimeMillis()}.jpg")
-
-          // Escribir (comprimir) la imagen dentro de este archivo fisico
-          FileOutputStream(photoFile).use { out->
-            currentBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
-          }
-          println("¡Éxito! Fotograma interceptado y guardado en: ${photoFile.absolutePath}")
-          println("Tamaño del archivo: ${photoFile.length() / 1024} KB")
-          photoFile
-        }
-        catch (e: Exception) {
-          println("Error al guardar el fotograma: ${e.message}")
-          null
-        }
-      }
+    return if(currentBitmap != null) {
+      // Delegar el trabajo de compresion y guardado fisico a FileUtils
+      FileUtils.saveBitmapCache(context, currentBitmap)
     } else {
-      println("No hay ningun fotograma de video disponible para guardar")
-      return null
+      println("[StreamViewModel] No hay ningun fotograma de video disponible para guardar")
+      null
     }
   }
   fun capturePhoto() {

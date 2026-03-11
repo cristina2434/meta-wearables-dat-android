@@ -2,6 +2,12 @@ package com.meta.wearable.dat.externalsampleapps.cameraaccess.retrofit
 
 import retrofit2.Retrofit
 
+/**
+ * Cliente HTTP (Singleton)
+ * Este objeto configura y mantiene una unica conexion a internet
+ * para toda la aplicacion. Aqui se define la URL del servidor y se
+ * construye el "motor" de Retrofit que ejecutara las llamadas definidas en MetaFileApi.
+ */
 object RetrofitClient {
     // En un futuro aqui ira la ip o dominio del servidor
     private const val BASE_URL = "https://servidor.com"
