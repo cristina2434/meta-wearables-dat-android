@@ -3,15 +3,46 @@ package com.meta.wearable.dat.externalsampleapps.cameraaccess.retrofit
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
-import retrofit2.http.Multipart
+import java.io.File
 
-class VideoViewModel : ViewModel() {
+class FileViewModel : ViewModel() {
 
+    // Funcion principal que sirve para cualquier tipo de archivo (foto, videos,audios)
+    fun sendFile(physicalFile: File, typeMime: String, nameBackend: String) {
+        viewModelScope.launch {
+            try {
+                // Empaquetar el archivo para Retrofit
+                println("Empaquetando archivo: ${physicalFile.name} ($typeMime)")
+                val requestBody = physicalFile.asRequestBody(typeMime.toMediaTypeOrNull())
+
+                val multipartPackage = MultipartBody.Part.createFormData(
+                    nameBackend,
+                    physicalFile.name,
+                    requestBody
+                )
+
+                // Enviar a la API
+                println("Enviando al servidor a traves de Retrofit")
+                val response = RetrofitClient.api.uploadFile(multipartPackage)
+
+                if (response.isSuccessful) {
+                    println("¡Éxito! Archivo enviado correctamente.")
+                    // Opcional, borrar  el archivo local para no ocupar espacio
+                    // localFile.delete()
+                }
+                else {
+                    println("Error del servidor: Codigo ${response.code()}")
+                }
+            } catch (e: Exception) {
+                println("Error de red o de proceso: ${e.localizedMessage}")
+            }
+        }
+    }
+    /*
     // Funcion principal que se llama desde la interfaz de usuario
     fun processSendVideo(context: Context, mockData: ByteArray) {
         viewModelScope.launch {
@@ -48,5 +79,5 @@ class VideoViewModel : ViewModel() {
             }
         }
 
-    }
+    }*/
 }

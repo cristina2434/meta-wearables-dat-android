@@ -43,6 +43,7 @@ import com.meta.wearable.dat.camera.types.VideoQuality
 import com.meta.wearable.dat.core.Wearables
 import com.meta.wearable.dat.core.selectors.DeviceSelector
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
+import kotlinx.coroutines.Dispatchers
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -54,11 +55,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.asRequestBody
-import com.meta.wearable.dat.externalsampleapps.cameraaccess.retrofit.RetrofitClient
 class StreamViewModel(
     application: Application,
     private val wearablesViewModel: WearablesViewModel,
@@ -114,12 +112,15 @@ class StreamViewModel(
     _uiState.update { INITIAL_STATE }
   }
 
-  fun saveCurrentFrame(context: Context) {
+  // Devuelve un File? , puede ser nulo si falla
+  suspend fun saveCurrentFrame(context: Context): File?{
     // Obtener el fotorgrama exacto que se esta mostrando en pantalla
     val currentBitmap = uiState.value.videoFrame
 
     if(currentBitmap != null) {
-      viewModelScope.launch {
+      // withContext(Dispatchers.IO) mueve esta tarea a un hilo secundario
+      // optimizado para leer y escribir archivos, sin tocar la interfaz grafica
+      return withContext(Dispatchers.IO) {
         try {
           // Crear archivo temporal en la memoria cache del movil
           val photoFile = File(context.cacheDir, "test_frame_${System.currentTimeMillis()}.jpg")
@@ -127,38 +128,19 @@ class StreamViewModel(
           // Escribir (comprimir) la imagen dentro de este archivo fisico
           FileOutputStream(photoFile).use { out->
             currentBitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
-
           }
-
-          // Mensajes de exito
           println("¡Éxito! Fotograma interceptado y guardado en: ${photoFile.absolutePath}")
           println("Tamaño del archivo: ${photoFile.length() / 1024} KB")
-
-          // En un futuro llamar a RetrofitClient para enviar este archivo
-          // Enviar el fotograma capturado por Retrofit
-          println("Empaquetando la imagen para enviarla")
-          val requestBody = photoFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
-          val multipartPackage = MultipartBody.Part.createFormData(
-            "archivo_imagen", //
-            photoFile.name,
-            requestBody
-          )
-
-          println("Enviando al servidor a traves de Retrofit")
-          // Llamar a la API
-          val response = RetrofitClient.api.uploadFile(multipartPackage)
-          if(response.isSuccessful) {
-            println("¡Subida al servidor completada con exito!")
-          }
-          else {
-            println("Error del servidor: Codigo ${response.code()}")
-          }
-        } catch (e: Exception) {
+          photoFile
+        }
+        catch (e: Exception) {
           println("Error al guardar el fotograma: ${e.message}")
+          null
         }
       }
     } else {
       println("No hay ningun fotograma de video disponible para guardar")
+      return null
     }
   }
   fun capturePhoto() {
@@ -382,3 +364,23 @@ class StreamViewModel(
     }
   }
 }
+/*
+         // En un futuro llamar a RetrofitClient para enviar este archivo
+         // Enviar el fotograma capturado por Retrofit
+         println("Empaquetando la imagen para enviarla")
+         val requestBody = photoFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
+         val multipartPackage = MultipartBody.Part.createFormData(
+           "archivo_imagen", //
+           photoFile.name,
+           requestBody
+         )
+
+         println("Enviando al servidor a traves de Retrofit")
+         // Llamar a la API
+         val response = RetrofitClient.api.uploadFile(multipartPackage)
+         if(response.isSuccessful) {
+           println("¡Subida al servidor completada con exito!")
+         }
+         else {
+           println("Error del servidor: Codigo ${response.code()}")
+         }*/
