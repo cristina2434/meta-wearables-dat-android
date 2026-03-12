@@ -83,6 +83,13 @@ class StreamViewModel(
   private var videoJob: Job? = null
   private var stateJob: Job? = null
 
+  // Guardar uri del video que se esta reproduciendo temporalmente
+  private var currentVideoUri: android.net.Uri? = null
+
+  // MainActivity establece la Uri
+  fun setSimulatedVideoUri(uri: android.net.Uri) {
+    currentVideoUri = uri
+  }
   fun startStream() {
     videoJob?.cancel()
     stateJob?.cancel()
@@ -130,6 +137,32 @@ class StreamViewModel(
     } else {
       println("[StreamViewModel] No hay ningun fotograma de video disponible para guardar")
       null
+    }
+  }
+
+  suspend fun sendSimulatedVideo(context: Context): File? {
+    val uri = currentVideoUri
+    if(uri == null) {
+      println("[StreamViewModel] No hay Uri del video simulado.")
+      return null
+    }
+    return withContext(Dispatchers.IO) {
+      try{
+        // Leer los bytes del video original desde la Uri
+        val inputStream = context.contentResolver.openInputStream(uri)
+        val bytes = inputStream?.readBytes()
+        inputStream?.close()
+
+        if(bytes != null) {
+          FileUtils.saveVideoCache(context, bytes)
+        }
+        else {
+          null
+        }
+      } catch (e: Exception) {
+        println("[StreamViewModel] Error al preparar el video simulado: ${e.message}")
+        null
+      }
     }
   }
   fun capturePhoto() {

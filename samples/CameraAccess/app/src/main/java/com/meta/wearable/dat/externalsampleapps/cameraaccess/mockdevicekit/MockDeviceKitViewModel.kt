@@ -31,6 +31,8 @@ class MockDeviceKitViewModel(application: Application) : AndroidViewModel(applic
 
   companion object {
     private const val TAG = "MockDeviceKitViewModel"
+    // Variable estatica para poder guardar el ultimo video seleccionado
+    var lastSelectedVideoUri: Uri? = null
   }
 
   private val mockDeviceKit = MockDeviceKit.getInstance(application.applicationContext)
@@ -107,6 +109,8 @@ class MockDeviceKitViewModel(application: Application) : AndroidViewModel(applic
         // getCameraKit().setCameraFeed() sets video content for streaming
         // This video will be streamed when StreamSession.videoStream is active
         deviceInfo.device.getCameraKit().setCameraFeed(uri)
+        // Guardar uri del video seleccionado
+        lastSelectedVideoUri = uri
         updateDeviceInfo(deviceInfo.copy(hasCameraFeed = true))
         Log.d(TAG, "Successfully set camera feed for device: ${deviceInfo.deviceId}")
       } catch (e: Exception) {

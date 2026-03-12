@@ -42,6 +42,7 @@ import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.StreamViewMo
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.mockdevicekit.MockDeviceKitViewModel
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.retrofit.FileViewModel
 import kotlinx.coroutines.launch
 @Composable
@@ -68,7 +69,13 @@ fun StreamScreen(
   // informar a FileUtils donde esta la carpeta fisica de cache del telefono
   val context = LocalContext.current
 
-  LaunchedEffect(Unit) { streamViewModel.startStream() }
+  LaunchedEffect(Unit) {
+      // Pasar la Uri del MockDevice al StreamViewModel
+      MockDeviceKitViewModel.lastSelectedVideoUri?.let {
+          uri -> streamViewModel.setSimulatedVideoUri(uri)
+      }
+      streamViewModel.startStream()
+  }
 
   Box(modifier = modifier.fillMaxSize()) {
     streamUiState.videoFrame?.let { videoFrame ->
@@ -98,8 +105,25 @@ fun StreamScreen(
         SwitchButton(
             label = stringResource(R.string.stop_stream_button_title),
             onClick = {
-              streamViewModel.stopStream()
-              wearablesViewModel.navigateToDeviceSelection()
+                // Lanzar la corrutina para enviar el video y apagar
+                coroutineScope.launch{
+                    println("[StreamScreen] Boton stop stream pulsado. Iniciando envio del video simulado")
+
+                    // Pedir a StreamViewModel el archivo fisico
+                    val videoFile = streamViewModel.sendSimulatedVideo(context)
+
+                    // Enviar a Retrofit
+                    if(videoFile != null) {
+                        fileViewModel.sendFile(
+                            physicalFile = videoFile,
+                            typeMime = "video/mp4",
+                            nameBackend = "video_file"
+                        )
+                    }
+                    // Una vez enviado, apagar el stream
+                    streamViewModel.stopStream()
+                    wearablesViewModel.navigateToDeviceSelection()
+                }
             },
             isDestructive = true,
             modifier = Modifier.weight(1f),
