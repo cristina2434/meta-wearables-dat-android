@@ -63,7 +63,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
+import android.media.MediaPlayer
 class StreamViewModel(
     application: Application,
     private val wearablesViewModel: WearablesViewModel,
@@ -86,6 +86,8 @@ class StreamViewModel(
   // Guardar uri del video que se esta reproduciendo temporalmente
   private var currentVideoUri: android.net.Uri? = null
 
+  // Reproductor de audio
+  private var mediaPlayer: MediaPlayer? = null
   // MainActivity establece la Uri
   fun setSimulatedVideoUri(uri: android.net.Uri) {
     currentVideoUri = uri
@@ -100,6 +102,18 @@ class StreamViewModel(
                 StreamConfiguration(videoQuality = VideoQuality.MEDIUM, 24),
             )
             .also { streamSession = it }
+    // Reproducir audio en paralelo
+    currentVideoUri?.let { uri ->
+      try {
+        // Reproductor "invisible" con el archivo mp4
+        mediaPlayer = MediaPlayer.create(getApplication(), uri)
+        mediaPlayer?.isLooping = true
+        mediaPlayer?.start()
+        println("[StreamViewModel] Reproduciendo audio en segundo plano")
+      } catch (e: Exception) {
+        println("[StreamViewModel] Error al intentar reproducir el audio: ${e.message}")
+      }
+    }
     videoJob = viewModelScope.launch { streamSession.videoStream.collect { handleVideoFrame(it) } }
     stateJob =
         viewModelScope.launch {
@@ -123,6 +137,11 @@ class StreamViewModel(
     stateJob = null
     streamSession?.close()
     streamSession = null
+
+    // Apagar y destruir el audio
+    mediaPlayer?.stop()
+    mediaPlayer?.release()
+    mediaPlayer = null
     _uiState.update { INITIAL_STATE }
   }
 
