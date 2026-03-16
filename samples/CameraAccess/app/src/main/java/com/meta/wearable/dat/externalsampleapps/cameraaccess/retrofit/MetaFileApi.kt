@@ -2,6 +2,7 @@ package com.meta.wearable.dat.externalsampleapps.cameraaccess.retrofit
 
 import okhttp3.MultipartBody
 import retrofit2.Response
+import retrofit2.http.GET
 import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Part
@@ -13,12 +14,15 @@ import retrofit2.http.Part
  * automaticamente por debajo
  */
 interface FileApiService {
+    // Endpoint
+    @GET("healthcheck")
+    suspend fun checkHealth(): Response<String>
 
     // Para que Retrofit sepa que se va a enviar un archivo (Multipart)
     // Suspend significa que esta funcion se ejecuta en segundo plano
     @Multipart
-    @POST("ruta") // "ruta pendiente de la api"
+    @POST("analyzer/audio") // "ruta pendiente de la api"
     suspend fun uploadFile(
         @Part file: MultipartBody.Part
-    ): Response<Unit> // solo para saber si devuelve un codigo 200 (OK)
+    ): Response<String> // Devuelve un string con la respuesta del LLM
 }

@@ -91,6 +91,9 @@ class MainActivity : ComponentActivity() {
       // Start observing Wearables state after SDK is initialized
       viewModel.startMonitoring()
 
+        // Prueba al arrancar la app
+        println("[MainActivity] Iniciando la prueba de conexion")
+        videoViewModel.testConnection()
         /*
       // Probar flujo Retrofit
 

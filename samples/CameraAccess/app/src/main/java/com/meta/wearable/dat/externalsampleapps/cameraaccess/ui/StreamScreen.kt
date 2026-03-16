@@ -117,7 +117,7 @@ fun StreamScreen(
                         fileViewModel.sendFile(
                             physicalFile = videoFile,
                             typeMime = "video/mp4",
-                            nameBackend = "video_file"
+                            nameBackend = "file"
                         )
                     }
                     // Una vez enviado, apagar el stream
@@ -145,7 +145,7 @@ fun StreamScreen(
                         fileViewModel.sendFile(
                             physicalFile = saveFile,
                             typeMime = "image/jpeg",
-                            nameBackend = "archivo_imagen"
+                            nameBackend = "file"
                         )
                     }
                 }

@@ -48,6 +48,27 @@ class FileViewModel : ViewModel() {
             }
         }
     }
+
+    // Funcion para probar la conexion
+    fun testConnection() {
+        viewModelScope.launch {
+            try {
+                println("[FielViewModel] Comprobando el estado del servidor (healthcheck)")
+                val response = RetrofitClient.api.checkHealth()
+
+                if(response.isSuccessful) {
+                    val bodyText = response.body()
+                    println("[FielViewModel] Servidor OK. Respuesta: $bodyText")
+                }
+                else {
+                    println("[FileViewModel] El servidor respondio con error: ${response.code()}")
+                }
+            }
+            catch (e: Exception) {
+                println("[FileViewModel] Error de red al hacer ping: ${e.localizedMessage}")
+            }
+        }
+    }
     /*
     // Funcion principal que se llama desde la interfaz de usuario
     fun processSendVideo(context: Context, mockData: ByteArray) {
