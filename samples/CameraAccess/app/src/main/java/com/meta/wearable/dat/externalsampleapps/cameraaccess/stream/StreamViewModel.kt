@@ -184,6 +184,28 @@ class StreamViewModel(
       }
     }
   }
+  suspend fun sendSimulatedAudio(context: Context): File? {
+    return withContext(Dispatchers.IO) {
+      try {
+        println("[StreamViewModel] Preparando archivo de audio de prueba")
+
+        // Abrir archivo desde los assests de la app
+        val inputStream = context.assets.open("test_audio.mp3")
+        val bytes = inputStream.readBytes()
+        inputStream.close()
+
+        // Guardarlo temporalmente en cache
+        val audioFile = File(context.cacheDir, "test_audio_${System.currentTimeMillis()}.mp3")
+        audioFile.writeBytes(bytes)
+
+        println("[StreamViewModel] Audio guardado temporalmente en: ${audioFile.absolutePath}")
+        audioFile
+      } catch (e: Exception) {
+        println("[StreamViewModel] Error al preparar el audio simulado: ${e.message}")
+        null
+      }
+    }
+  }
   fun capturePhoto() {
     if (uiState.value.isCapturing) {
       Log.d(TAG, "Photo capture already in progress, ignoring request")
