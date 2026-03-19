@@ -64,6 +64,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.media.MediaPlayer
+import android.content.ContentValues
+import android.provider.MediaStore
+import android.os.Build
+import android.widget.Toast
 class StreamViewModel(
     application: Application,
     private val wearablesViewModel: WearablesViewModel,
@@ -404,6 +408,46 @@ class StreamViewModel(
     }
   }
 
+  // Funcion para guardar las capturas de fotos que se hacen durante el streaming en la galeria del telefono
+  fun saveToGallery(bitmap: Bitmap) {
+    val context = getApplication<Application>()
+    val filename = "Meta_Glasses_${System.currentTimeMillis()}.jpg"
+
+    // Preparar la etiqueta para la galeria de Android
+    val contentValues = ContentValues().apply {
+      put(MediaStore.Images.Media.DISPLAY_NAME, filename)
+      put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        // Se pide que lo guarde en la carpeta "Pictures/MetaGlasses"
+        put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/MetaGlasses")
+        put(MediaStore.Images.Media.IS_PENDING, 1)
+      }
+    }
+
+    val resolver = context.contentResolver
+    val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+
+    // Guardar la imagen en la galeria
+    try {
+      if(uri != null) {
+        resolver.openOutputStream(uri)?.use { outputStream ->
+          bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+          contentValues.clear()
+          contentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
+          resolver.update(uri, contentValues, null, null)
+        }
+
+        // Informar con un mensaje en pantalla para confirmar
+        viewModelScope.launch(Dispatchers.Main) {
+          Toast.makeText(context, "¡Foto guardada en la galería!", Toast.LENGTH_SHORT).show()
+        }
+      }
+    } catch (e: Exception) {
+      Log.e("StreamViewModel", "Error al guardar en galería", e)
+    }
+  }
   override fun onCleared() {
     super.onCleared()
     stopStream()

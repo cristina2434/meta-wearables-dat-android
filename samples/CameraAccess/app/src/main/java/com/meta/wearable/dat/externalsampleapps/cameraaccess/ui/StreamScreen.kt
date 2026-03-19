@@ -107,19 +107,19 @@ fun StreamScreen(
             onClick = {
                 // Lanzar la corrutina para enviar el video y apagar
                 coroutineScope.launch{
-                   // println("[StreamScreen] Boton stop stream pulsado. Iniciando envio del video simulado")
+                    println("[StreamScreen] Boton stop stream pulsado. Iniciando envio del video simulado")
                     println("[StreamScreen] Boton stop stream pulsado. Iniciando envio del audio simulado")
                     // Pedir a StreamViewModel el archivo fisico
-                    //val videoFile = streamViewModel.sendSimulatedVideo(context)
+                    val videoFile = streamViewModel.sendSimulatedVideo(context)
                     val audioFile = streamViewModel.sendSimulatedAudio(context)
                     // Enviar a Retrofit
-//                    if(videoFile != null) {
-//                        fileViewModel.sendFile(
-//                            physicalFile = videoFile,
-//                            typeMime = "video/mp4",
-//                            nameBackend = "file"
-//                        )
-//                    }
+                    if(videoFile != null) {
+                        fileViewModel.sendFile(
+                            physicalFile = videoFile,
+                            typeMime = "video/mp4",
+                            nameBackend = "file"
+                        )
+                    }
                     // Enviar a Retrofit
                     if(audioFile != null) {
                         fileViewModel.sendFile(
@@ -145,6 +145,11 @@ fun StreamScreen(
                 coroutineScope.launch {
                     println("[StreamScreen] Boton pulsado: iniciando flujo de captura y envio")
 
+                    // Guardar la imagen en la galeria
+                    streamUiState.videoFrame?.let { fotograma ->
+                        streamViewModel.saveToGallery(fotograma)
+
+                    }
                     // Interceptar y guardar la imagen
                     val saveFile = streamViewModel.saveCurrentFrame(context)
 
