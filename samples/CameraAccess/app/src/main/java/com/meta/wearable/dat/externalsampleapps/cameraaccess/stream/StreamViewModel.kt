@@ -68,9 +68,12 @@ import android.content.ContentValues
 import android.provider.MediaStore
 import android.os.Build
 import android.widget.Toast
+
 class StreamViewModel(
     application: Application,
     private val wearablesViewModel: WearablesViewModel,
+  private var audioRecorder: android.media.MediaRecorder? = null,
+  private var currentAudioFile: File? = null
 ) : AndroidViewModel(application) {
 
   companion object {
@@ -146,6 +149,10 @@ class StreamViewModel(
     mediaPlayer?.stop()
     mediaPlayer?.release()
     mediaPlayer = null
+
+    // Limpiar grabacion audio real
+    audioRecorder?.release()
+    audioRecorder = null
     _uiState.update { INITIAL_STATE }
   }
 
@@ -201,6 +208,10 @@ class StreamViewModel(
         // Guardarlo temporalmente en cache
         val audioFile = File(context.cacheDir, "test_audio_${System.currentTimeMillis()}.mp3")
         audioFile.writeBytes(bytes)
+
+        // LOG TEMPORAL: primeros bytes para identificar el formato real
+        val header = bytes.take(4).map { it.toInt() and 0xFF }
+        println("[StreamViewModel] Cabecera del audio simulado: $header")
 
         println("[StreamViewModel] Audio guardado temporalmente en: ${audioFile.absolutePath}")
         audioFile
@@ -446,6 +457,78 @@ class StreamViewModel(
       }
     } catch (e: Exception) {
       Log.e("StreamViewModel", "Error al guardar en galería", e)
+    }
+  }
+
+  // Graba el audio real en paralelo al video
+  fun startAudioRecording(context: Context) {
+
+    // Comprobar que se tiene permiso antes de intentar grabar
+    val permissionGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+      context,
+      android.Manifest.permission.RECORD_AUDIO
+    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    if (!permissionGranted) {
+      println("[StreamViewModel] Sin permiso de microfono, no se puede grabar audio real")
+      return
+    }
+    val audioFile = File(context.cacheDir, "glasses_audio_${System.currentTimeMillis()}.m4a")
+    currentAudioFile = audioFile
+
+//    try {
+//      mp3Recorder = MP3Recorder(audioFile).apply {
+//        start()
+//      }
+//      println("[StreamViewModel] Grabacion MP3 real iniciada: ${audioFile.absolutePath}")
+//    }
+//    catch (e: Exception) {
+//      println("[StreamViewModel] Error al iniciar grabacion MP3: ${e.message}")
+//      mp3Recorder = null
+//      currentAudioFile = null
+//    }
+    try {
+      audioRecorder = android.media.MediaRecorder(context).apply {
+        setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
+        setOutputFormat(android.media.MediaRecorder.OutputFormat.MPEG_4)
+        setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AAC)
+        setAudioSamplingRate(44100)
+        setAudioEncodingBitRate(128000)
+        setOutputFile(audioFile.absolutePath)
+        prepare()
+        start()
+      }
+      println("[StreamViewModel] Grabacion de audio real iniciada: ${audioFile.absolutePath}")
+    } catch(e: Exception) {
+      println("[StreamViewModel] Error al iniciar grabacion de audio: ${e.message}")
+      audioRecorder = null
+      currentAudioFile = null
+    }
+  }
+
+  // Detiene la grabacion y devuelve el archivo para enviar
+  fun stopAudioRecordingAndGetFile(): File? {
+    return try {
+      audioRecorder?.apply() {
+        stop()
+        release()
+      }
+      audioRecorder = null
+      val file = currentAudioFile
+      currentAudioFile = null
+
+      // Verificar que el archivo tiene contenido real
+    if (file != null && file.exists()) {
+      val header = file.readBytes().take(4).map { it.toInt() and 0xFF }
+      println("[StreamViewModel] Grabacion de audio real detenida. Archivo: ${file?.absolutePath}")
+      println("Tamaño: ${file.length()} bytes. Cabecera: $header")
+    }
+
+      file
+    } catch (e: Exception) {
+      println("[StreamViewModel] Error al deneter la grabacion real: ${e.message}")
+      audioRecorder = null
+      null
     }
   }
   override fun onCleared() {

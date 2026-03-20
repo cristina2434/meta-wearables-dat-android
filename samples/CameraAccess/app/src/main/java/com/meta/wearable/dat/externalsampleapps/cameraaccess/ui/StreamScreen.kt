@@ -75,6 +75,7 @@ fun StreamScreen(
           uri -> streamViewModel.setSimulatedVideoUri(uri)
       }
       streamViewModel.startStream()
+      streamViewModel.startAudioRecording(context)
   }
 
   Box(modifier = modifier.fillMaxSize()) {
@@ -110,8 +111,28 @@ fun StreamScreen(
                     // println("[StreamScreen] Boton stop stream pulsado. Iniciando envio del video simulado")
                     println("[StreamScreen] Boton stop stream pulsado. Iniciando envio del audio simulado")
                     // Pedir a StreamViewModel el archivo fisico
-                   // val videoFile = streamViewModel.sendSimulatedVideo(context)
-                    val audioFile = streamViewModel.sendSimulatedAudio(context)
+
+                    //val audioFile = streamViewModel.sendSimulatedAudio(context)
+                    val audioFile = streamViewModel.stopAudioRecordingAndGetFile()
+                    // Enviar a Retrofit y guardar la respuesta del LLM
+                    val llmRespone: String? = if (audioFile != null) {
+                        fileViewModel.sendFile(
+                            physicalFile = audioFile,
+                            typeMime = "audio/mp4",
+                            nameBackend = "file"
+                        )
+                    }
+                    else {
+                        println("[StreamScreen] No hay archivo de audio para enviar")
+                        null
+                    }
+
+                    if (llmRespone != null) {
+                        println("[StreamScreen] Respuesta del LLM: $llmRespone")
+                    }
+
+                    // Envio de video
+                    //val videoFile = streamViewModel.sendSimulatedVideo(context)
                     // Enviar a Retrofit
 //                    if(videoFile != null) {
 //                        fileViewModel.sendFile(
@@ -120,14 +141,6 @@ fun StreamScreen(
 //                            nameBackend = "file"
 //                        )
 //                    }
-                    // Enviar a Retrofit
-                    if(audioFile != null) {
-                        fileViewModel.sendFile(
-                            physicalFile = audioFile,
-                            typeMime = "audio/mpeg",
-                            nameBackend = "file"
-                        )
-                    }
                     // Una vez enviado, apagar el stream
                     streamViewModel.stopStream()
                     wearablesViewModel.navigateToDeviceSelection()

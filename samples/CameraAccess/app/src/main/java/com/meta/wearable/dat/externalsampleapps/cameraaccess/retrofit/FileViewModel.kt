@@ -18,41 +18,47 @@ import java.io.File
 class FileViewModel : ViewModel() {
 
     // Funcion principal que sirve para cualquier tipo de archivo (foto, videos,audios)
-    fun sendFile(physicalFile: File, typeMime: String, nameBackend: String) {
-        viewModelScope.launch {
-            try {
-                // Empaquetar el archivo para Retrofit
-                println("[FileViewModel]Empaquetando archivo: ${physicalFile.name} ($typeMime)")
-                val requestBody = physicalFile.asRequestBody(typeMime.toMediaTypeOrNull())
+    // Devuelve String? con la respuesta del LLM (o null si falla)
+    suspend fun sendFile(physicalFile: File, typeMime: String, nameBackend: String): String? {
+        return try {
+            // Empaquetar el archivo para Retrofit
+            println("[FileViewModel]Empaquetando archivo: ${physicalFile.name} ($typeMime)")
+            val requestBody = physicalFile.asRequestBody(typeMime.toMediaTypeOrNull())
+            val multipartPackage = MultipartBody.Part.createFormData(
+                nameBackend,
+                physicalFile.name,
+                requestBody
+            )
 
-                val multipartPackage = MultipartBody.Part.createFormData(
-                    nameBackend,
-                    physicalFile.name,
-                    requestBody
-                )
+            // Enviar a la API
+            println("[FileViewModel]Enviando al servidor a traves de Retrofit")
+            val response = RetrofitClient.api.uploadFile(multipartPackage)
 
-                // Enviar a la API
-                println("[FileViewModel]Enviando al servidor a traves de Retrofit")
-                val response = RetrofitClient.api.uploadFile(multipartPackage)
+            if (response.isSuccessful) {
+                // Extraer el cuerpo de la respuesta que manda el servidor
+                val llmResponse = response.body()
 
-                if (response.isSuccessful) {
-                    // Extraer el cuerpo de la respuesta que manda el servidor
-                    val bodyText = response.body()
-
-                    println("[FileViewModel]¡Éxito! Archivo enviado correctamente.")
-                    println("[FileViewModel]Respuesta LLM: $bodyText")
-                    // Opcional, borrar  el archivo local para no ocupar espacio
-                    // localFile.delete()
-                }
-                else {
-                    println("[FileViewModel]Error del servidor: Codigo ${response.code()}")
-                }
-            } catch (e: Exception) {
-                println("[FileViewModel]Error de red o de proceso: ${e.localizedMessage}")
+                println("[FileViewModel]¡Éxito! Archivo enviado correctamente.")
+                // Opcional, borrar  el archivo local para no ocupar espacio
+                // localFile.delete()
+                llmResponse
             }
+            else {
+                println("[FileViewModel]Error del servidor: Codigo ${response.code()}")
+                null
+            }
+        }catch (e: Exception) {
+            println("[FileViewModel]Error de red o de proceso: ${e.localizedMessage}")
+            null
         }
     }
 
+    // Wrapper no-suspend para llamadas "fire and forget" desde la UI si no necesitas el resultado
+    fun sendFileAsync(physicalFile: File, typeMime: String, nameBackend: String) {
+        viewModelScope.launch {
+            sendFile(physicalFile, typeMime, nameBackend)
+        }
+    }
     // Funcion para probar la conexion
     fun testConnection() {
         viewModelScope.launch {
