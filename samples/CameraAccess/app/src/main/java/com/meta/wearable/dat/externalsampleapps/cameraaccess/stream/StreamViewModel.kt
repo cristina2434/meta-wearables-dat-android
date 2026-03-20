@@ -194,7 +194,7 @@ class StreamViewModel(
         println("[StreamViewModel] Preparando archivo de audio de prueba")
 
         // Abrir archivo desde los assests de la app
-        val inputStream = context.assets.open("test_audio.mp3")
+        val inputStream = context.assets.open("audio_hola.mp3")
         val bytes = inputStream.readBytes()
         inputStream.close()
 

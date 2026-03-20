@@ -21,7 +21,7 @@ interface FileApiService {
     // Para que Retrofit sepa que se va a enviar un archivo (Multipart)
     // Suspend significa que esta funcion se ejecuta en segundo plano
     @Multipart
-    @POST("analyzer/audio") // "ruta pendiente de la api"
+    @POST("analyzer/audio") // "ruta de la api"
     suspend fun uploadFile(
         @Part file: MultipartBody.Part
     ): Response<String> // Devuelve un string con la respuesta del LLM

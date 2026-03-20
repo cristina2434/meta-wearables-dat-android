@@ -36,7 +36,11 @@ class FileViewModel : ViewModel() {
                 val response = RetrofitClient.api.uploadFile(multipartPackage)
 
                 if (response.isSuccessful) {
+                    // Extraer el cuerpo de la respuesta que manda el servidor
+                    val bodyText = response.body()
+
                     println("[FileViewModel]¡Éxito! Archivo enviado correctamente.")
+                    println("[FileViewModel]Respuesta LLM: $bodyText")
                     // Opcional, borrar  el archivo local para no ocupar espacio
                     // localFile.delete()
                 }
