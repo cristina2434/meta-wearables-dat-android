@@ -329,7 +329,14 @@ class StreamViewModel(
         try {
           val canvas = surface.lockCanvas(null)
           if(canvas != null) {
-            canvas.drawBitmap(bitmap, 0f, 0f, null)
+            // Limpiar el lienzo por completo
+            canvas.drawColor(android.graphics.Color.BLACK)
+
+            // Calcular tamaño total del lienzo de grabacion
+            val destRect = android.graphics.Rect(0,0,canvas.width, canvas.height)
+
+            // Dibujar el bitmap forzando a que encaje en el destRect
+            canvas.drawBitmap(bitmap, null, destRect, null)
             surface.unlockCanvasAndPost(canvas)
           }
         } catch (e: Exception) {
@@ -597,10 +604,12 @@ class StreamViewModel(
         setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AAC)
         setVideoEncoder(android.media.MediaRecorder.VideoEncoder.H264)
 
-        // Resolucion
+        // Resolucion: mantener la que manda las gafas para no deformar
         setVideoSize(width, height)
-        setVideoEncodingBitRate(5000000)
         setVideoFrameRate(24)
+        setVideoEncodingBitRate(1200000)
+        setAudioEncodingBitRate(64000)
+        setAudioSamplingRate(44100)
         setOutputFile(videoFile.absolutePath)
 
         prepare()

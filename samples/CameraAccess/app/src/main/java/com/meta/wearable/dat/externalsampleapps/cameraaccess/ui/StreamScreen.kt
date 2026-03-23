@@ -132,7 +132,13 @@ fun StreamScreen(
 //                    }
 
                     // Envio de video
+                    // Detener grabacion de video y obtener el archivo
                     val videoFile = streamViewModel.stopVideoRecordingAndGetFile()
+
+                    // Detener stream inmediatamente, para cancelar videoJob y evitar que entren mas fotogramas
+                    // mientras la app esta ocupada enviado el archivo por red
+                    streamViewModel.stopStream()
+
                     // Enviar a Retrofit
                     if(videoFile != null) {
                         // Guardar en galeria
@@ -149,7 +155,7 @@ fun StreamScreen(
                         println("[StreamScreen] No se pudo obtener el archivo de video")
                     }
                     // Una vez enviado, apagar el stream
-                    streamViewModel.stopStream()
+                    // streamViewModel.stopStream()
                     wearablesViewModel.navigateToDeviceSelection()
                 }
             },
