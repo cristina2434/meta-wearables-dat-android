@@ -68,6 +68,7 @@ import android.content.ContentValues
 import android.provider.MediaStore
 import android.os.Build
 import android.widget.Toast
+import androidx.annotation.ContentView
 
 class StreamViewModel(
     application: Application,
@@ -93,8 +94,16 @@ class StreamViewModel(
 
   // Reproductor de audio
   private var mediaPlayer: MediaPlayer? = null
+
+  // Variables para la grabacion de audio
   private var audioRecorder: android.media.MediaRecorder? = null
   private var currentAudioFile: File? = null
+
+  // Variables para la grabacion de video
+  private var mediaRecorder: android.media.MediaRecorder? = null
+  private var recordingSurface: android.view.Surface? = null
+  private var currentVideoFile: File? = null
+  private var isRecording  = false
   // MainActivity establece la Uri
   fun setSimulatedVideoUri(uri: android.net.Uri) {
     currentVideoUri = uri
@@ -308,6 +317,27 @@ class StreamViewModel(
 
     val bitmap = BitmapFactory.decodeByteArray(out, 0, out.size)
     _uiState.update { it.copy(videoFrame = bitmap) }
+
+    // Se inicia la grabacion usando el formato del primer frame
+    if(!isRecording) {
+      startVideoRecording(getApplication(), videoFrame.width, videoFrame.height)
+    }
+
+    // Pintar el bitmap actual en el archivo de video
+    recordingSurface?.let{ surface ->
+      if(surface.isValid) {
+        try {
+          val canvas = surface.lockCanvas(null)
+          if(canvas != null) {
+            canvas.drawBitmap(bitmap, 0f, 0f, null)
+            surface.unlockCanvasAndPost(canvas)
+          }
+        } catch (e: Exception) {
+          println("[StreamViewModel] Error dibujando fotograma en MediaRecorder: ${e.message}")
+        }
+      }
+
+    }
   }
 
   // Convert I420 (YYYYYYYY:UUVV) to NV21 (YYYYYYYY:VUVU)
@@ -534,6 +564,128 @@ class StreamViewModel(
       println("[StreamViewModel] Error al deneter la grabacion real: ${e.message}")
       audioRecorder = null
       null
+    }
+  }
+
+  private fun startVideoRecording(context: Context, width: Int, height: Int) {
+    if(isRecording) return
+
+    val permissionGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+      context,
+      android.Manifest.permission.RECORD_AUDIO
+    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    if(!permissionGranted) {
+      println("[StreamViewModel] Sin permiso de microfono, no se puede grabar el video con audio")
+      return
+    }
+
+    val videoFile = File(context.cacheDir, "glasses_video_${System.currentTimeMillis()}.mp4")
+    currentVideoFile = videoFile
+
+    try {
+      mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        android.media.MediaRecorder(context)
+      } else {
+        @Suppress("DEPRECATION")
+        android.media.MediaRecorder()
+      }.apply {
+        setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
+        setVideoSource(android.media.MediaRecorder.VideoSource.SURFACE)
+        setOutputFormat(android.media.MediaRecorder.OutputFormat.MPEG_4)
+
+        setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AAC)
+        setVideoEncoder(android.media.MediaRecorder.VideoEncoder.H264)
+
+        // Resolucion
+        setVideoSize(width, height)
+        setVideoEncodingBitRate(5000000)
+        setVideoFrameRate(24)
+        setOutputFile(videoFile.absolutePath)
+
+        prepare()
+      }
+
+      recordingSurface = mediaRecorder?.surface
+      mediaRecorder?.start()
+      isRecording = true
+
+      println("[StreamViewModel] Grabacion de video iniciada en: ${videoFile.absolutePath}")
+    } catch (e: Exception) {
+      println("[StreamViewModel] Error al  iniciar grabacion de video: ${e.message}")
+      mediaRecorder = null
+      currentVideoFile = null
+      isRecording = false
+    }
+  }
+
+  fun stopVideoRecordingAndGetFile(): File? {
+    if (!isRecording) return null
+
+    return try {
+      mediaRecorder?.apply {
+        stop()
+        release()
+      }
+      recordingSurface?.release()
+
+      val file = currentVideoFile
+
+      mediaRecorder = null
+      recordingSurface = null
+      currentVideoFile = null
+      isRecording = false
+
+      // Verificar que el archivo tiene contenido real
+      if (file != null && file.exists()) {
+        println("[StreamViewModel] Grabacion de video real detenida. Tamaño: ${file.length() / 1024} KB")
+      }
+      file
+    } catch (e: Exception) {
+      println("[StreamViewModel] Error al deneter la grabacion de video real: ${e.message}")
+      mediaRecorder = null
+      recordingSurface = null
+      isRecording = false
+      null
+    }
+  }
+
+  fun saveVideoToGallery(videoFile: File) {
+    val context = getApplication<Application>()
+    val filename = videoFile.name
+
+    val contentValues = ContentValues().apply {
+      put(MediaStore.Video.Media.DISPLAY_NAME, filename)
+      put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+      if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { // API 29+
+        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MetaGlasses")
+        put(MediaStore.Video.Media.IS_PENDING, 1)
+      }
+    }
+
+    val resolver = context.contentResolver
+    val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, contentValues)
+
+    try{
+      if (uri != null) {
+        resolver.openOutputStream(uri)?.use{ outputStream ->
+          videoFile.inputStream().use { inputStream ->
+            inputStream.copyTo(outputStream)
+          }
+        }
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+          contentValues.clear()
+          contentValues.put(MediaStore.Video.Media.IS_PENDING, 0)
+          resolver.update(uri, contentValues, null, null)
+        }
+
+        viewModelScope.launch(Dispatchers.Main) {
+          Toast.makeText(context, "¡Vídeo guardado en la galería", Toast.LENGTH_SHORT).show()
+        }
+        println("[StreamViewModel] Video guardado en galeria")
+      }
+    } catch (e: Exception) {
+      println("[StreamViewModel] Error al guardar video en galeria: ${e.message}")
     }
   }
   override fun onCleared() {
