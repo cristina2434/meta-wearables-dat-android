@@ -20,7 +20,7 @@ android {
 
   defaultConfig {
     applicationId = "com.meta.wearable.dat.externalsampleapps.cameraaccess"
-    minSdk = 31
+    minSdk = 29
     targetSdk = 34
     versionCode = 1
     versionName = "1.0"
