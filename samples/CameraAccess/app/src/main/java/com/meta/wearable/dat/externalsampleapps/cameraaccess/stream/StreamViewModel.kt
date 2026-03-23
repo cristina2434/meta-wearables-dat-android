@@ -71,9 +71,7 @@ import android.widget.Toast
 
 class StreamViewModel(
     application: Application,
-    private val wearablesViewModel: WearablesViewModel,
-  private var audioRecorder: android.media.MediaRecorder? = null,
-  private var currentAudioFile: File? = null
+    private val wearablesViewModel: WearablesViewModel
 ) : AndroidViewModel(application) {
 
   companion object {
@@ -95,6 +93,8 @@ class StreamViewModel(
 
   // Reproductor de audio
   private var mediaPlayer: MediaPlayer? = null
+  private var audioRecorder: android.media.MediaRecorder? = null
+  private var currentAudioFile: File? = null
   // MainActivity establece la Uri
   fun setSimulatedVideoUri(uri: android.net.Uri) {
     currentVideoUri = uri
@@ -488,7 +488,12 @@ class StreamViewModel(
 //      currentAudioFile = null
 //    }
     try {
-      audioRecorder = android.media.MediaRecorder(context).apply {
+      audioRecorder = if(android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+        android.media.MediaRecorder(context) // API 31+
+      } else {
+        @Suppress("DEPRECATION")
+        android.media.MediaRecorder()         // API 29-30
+      }.apply {
         setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
         setOutputFormat(android.media.MediaRecorder.OutputFormat.MPEG_4)
         setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AAC)
