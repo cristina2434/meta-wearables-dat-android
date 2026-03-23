@@ -47,7 +47,20 @@ import kotlinx.coroutines.sync.withLock
 class MainActivity : ComponentActivity() {
   companion object {
     // Required Android permissions for the DAT SDK to function properly
-    val PERMISSIONS: Array<String> = arrayOf(BLUETOOTH, BLUETOOTH_CONNECT, INTERNET, android.Manifest.permission.RECORD_AUDIO)
+      // Pedir permisos segun la version de Android
+    val PERMISSIONS: Array<String> =
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            // Android 12+
+            arrayOf(BLUETOOTH_CONNECT,
+                INTERNET,
+                android.Manifest.permission.RECORD_AUDIO)
+        } else {
+            arrayOf(BLUETOOTH,
+                android.Manifest.permission.ACCESS_FINE_LOCATION,
+                android.Manifest.permission.ACCESS_COARSE_LOCATION,
+                INTERNET,
+                android.Manifest.permission.RECORD_AUDIO)
+        }
   }
 
   val viewModel: WearablesViewModel by viewModels()
