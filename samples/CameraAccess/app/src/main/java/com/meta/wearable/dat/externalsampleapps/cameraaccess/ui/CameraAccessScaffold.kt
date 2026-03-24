@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -58,6 +59,8 @@ import com.meta.wearable.dat.core.types.Permission
 import com.meta.wearable.dat.core.types.PermissionStatus
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.BuildConfig
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +73,8 @@ fun CameraAccessScaffold(
   val snackbarHostState = remember { SnackbarHostState() }
   val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+  // Estado para controlar si el menu de subir archivos esta visible
+  var isUploadMenuVisible by remember { androidx.compose.runtime.mutableStateOf(false) }
   // Observe camera permission errors and show snackbar
   LaunchedEffect(uiState.recentError) {
     uiState.recentError?.let { errorMessage ->
@@ -99,7 +104,8 @@ fun CameraAccessScaffold(
       SnackbarHost(
           hostState = snackbarHostState,
           modifier =
-              Modifier.align(Alignment.BottomCenter)
+              Modifier
+                  .align(Alignment.BottomCenter)
                   .navigationBarsPadding()
                   .padding(horizontal = 16.dp, vertical = 32.dp),
           snackbar = { data ->
@@ -121,6 +127,41 @@ fun CameraAccessScaffold(
           },
       )
 
+      // Boton flotante para abrir el menu de enviar archivos
+      FloatingActionButton(
+          onClick = { isUploadMenuVisible = true},
+          modifier = Modifier.align(Alignment.CenterStart),
+          containerColor = AppColor.DeepBlue,
+          contentColor = androidx.compose.ui.graphics.Color.White
+      ) {
+          Icon(Icons.Default.CloudUpload, contentDescription = "Upload file")
+      }
+
+      // BottomSheet que muestra UploadMediaScreen
+      if(isUploadMenuVisible) {
+          ModalBottomSheet(
+              onDismissRequest = {isUploadMenuVisible = false},
+              sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+          ) {
+              UploadMediaScreen(
+                  onVideoSelected = { uri ->
+                      println("[Upload] Video seleccionado: $uri")
+                      isUploadMenuVisible = false
+                      // TODO: convertir uri a file y enviarlo a retrofit
+                  },
+                  onImageSelected = { uri ->
+                      println("[Upload] Imagen seleccionado: $uri")
+                      isUploadMenuVisible = false
+                      // TODO: convertir uri a file y enviarlo a retrofit
+                  },
+                  onAudioSelected = { uri ->
+                      println("[Upload] Audio seleccionado (desde video): $uri")
+                      isUploadMenuVisible = false
+                      // TODO: convertir uri a file y enviarlo a retrofit
+                  }
+              )
+          }
+      }
       if (BuildConfig.DEBUG) {
         FloatingActionButton(
             onClick = { viewModel.showDebugMenu() },
