@@ -689,10 +689,10 @@ class StreamViewModel(
           resolver.update(uri, contentValues, null, null)
         }
 
-        // Borrar el archivo temporal de la cache porque ya esta en la galeria
-        if(videoFile.exists()) {
-          videoFile.delete()
-        }
+//        // Borrar el archivo temporal de la cache porque ya esta en la galeria
+//        if(videoFile.exists()) {
+//          videoFile.delete()
+//        }
 
         viewModelScope.launch(Dispatchers.Main) {
           Toast.makeText(context, "¡Vídeo guardado en la galería", Toast.LENGTH_SHORT).show()

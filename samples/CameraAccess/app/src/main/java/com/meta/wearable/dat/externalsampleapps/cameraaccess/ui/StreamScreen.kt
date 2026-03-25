@@ -16,8 +16,11 @@ package com.meta.wearable.dat.externalsampleapps.cameraaccess.ui
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,6 +44,7 @@ import com.meta.wearable.dat.externalsampleapps.cameraaccess.R
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.StreamViewModel
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.mockdevicekit.MockDeviceKitViewModel
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.retrofit.FileViewModel
@@ -69,6 +73,12 @@ fun StreamScreen(
   // informar a FileUtils donde esta la carpeta fisica de cache del telefono
   val context = LocalContext.current
 
+  // Estado para mostrar el dialogo de confirmacion tras grabar
+  var showSendDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+  // Variable para guardar temporalmente el archivo del video grabado para enviarlo
+  var recordedVideoFile by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<java.io.File?>(null)}
+  // Estado de carga para el envio
+  var isUploading by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
   LaunchedEffect(Unit) {
       // Pasar la Uri del MockDevice al StreamViewModel
       MockDeviceKitViewModel.lastSelectedVideoUri?.let {
@@ -139,8 +149,11 @@ fun StreamScreen(
 
                     // Guardar en galeria
                     if (videoFile != null) {
+                        // Guardar el archivo en la variable
+                        recordedVideoFile = videoFile
                         streamViewModel.saveVideoToGallery(videoFile)
-                        println("[StreamScreen] Video guardado en galeria")
+                        println("[StreamScreen] Video guardado en galeria. Abriendo dialogo.")
+                        showSendDialog = true
 //                        val llmResponse = fileViewModel.sendFile(
 //                            physicalFile = videoFile,
 //                            typeMime = "video/mp4",
@@ -150,7 +163,8 @@ fun StreamScreen(
 //                            println("[StreamScreen] Respuesta del LLM: $llmResponse")
 //                        }
                     } else{
-                        println("[StreamScreen] No se pudo obtener el archivo de video")
+                        println("[StreamScreen] No se pudo obtener el archivo de video. Saliendo.")
+                        wearablesViewModel.navigateToDeviceSelection()
                     }
 //                    // Enviar a Retrofit
 //                    if(videoFile != null) {
@@ -167,7 +181,7 @@ fun StreamScreen(
 //                    } else{
 //                        println("[StreamScreen] No se pudo obtener el archivo de video")
 //                    }
-                    wearablesViewModel.navigateToDeviceSelection()
+                    // wearablesViewModel.navigateToDeviceSelection()
                 }
             },
             isDestructive = true,
@@ -205,6 +219,84 @@ fun StreamScreen(
     }
   }
 
+  // Dialogo para elegir que tipo de archivo enviar
+  if(showSendDialog) {
+      androidx.compose.material3.AlertDialog(
+          onDismissRequest = {
+              // Si el usuario pulsa fuera, se cancela la accion y se vuelve al menu anterior
+              recordedVideoFile?.delete()
+              showSendDialog = false
+              wearablesViewModel.navigateToDeviceSelection()
+          },
+          title = { androidx.compose.material3.Text("Recording Finished")},
+          text = { androidx.compose.material3.Text("What type of file do you want to upload to the server for analysis?")},
+          confirmButton = {
+              androidx.compose.material3.TextButton(
+                  onClick = {
+                      coroutineScope.launch {
+                          showSendDialog = false
+                          isUploading = true
+                          recordedVideoFile?.let { file ->
+                              println("[StreamScreen] Enviando video.")
+                              val response = fileViewModel.sendFile(file, "video/mp4", "file")
+                              handleUploadResponse(context, response)
+
+                              file.delete()
+                          }
+                          isUploading = false
+                          wearablesViewModel.navigateToDeviceSelection()
+                      }
+                  }
+              ) {
+                  androidx.compose.material3.Text("Send video")
+              }
+          },
+          dismissButton = {
+              androidx.compose.material3.TextButton(
+                  onClick = {
+                      coroutineScope.launch {
+                          showSendDialog = false
+                          isUploading = true
+                          recordedVideoFile?.let { file ->
+                              println("[StreamScreen] Enviando solo audio.")
+                              val response = fileViewModel.sendFile(file, "audio/mp4", "file")
+                              handleUploadResponse(context, response)
+
+                              file.delete()
+                          }
+                          isUploading = false
+                          wearablesViewModel.navigateToDeviceSelection()
+                      }
+                  }
+              ) {
+                  androidx.compose.material3.Text("Send audio only")
+              }
+          }
+      )
+  }
+
+  // Pantalla de carga
+  if(isUploading) {
+      Box (
+          modifier = Modifier
+              .fillMaxSize()
+              .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f))
+              .clickable(enabled = false) {},
+          contentAlignment = Alignment.Center
+      ) {
+          Column(
+              horizontalAlignment = Alignment.CenterHorizontally,
+              verticalArrangement = Arrangement.spacedBy(16.dp)
+          ) {
+              CircularProgressIndicator(color = AppColor.DeepBlue)
+              androidx.compose.material3.Text(
+                  text = "Sending recorded file to server...",
+                  color = androidx.compose.ui.graphics.Color.White,
+                  style = androidx.compose.material3.MaterialTheme.typography.titleMedium
+              )
+          }
+      }
+  }
   streamUiState.capturedPhoto?.let { photo ->
     if (streamUiState.isShareDialogVisible) {
       SharePhotoDialog(
@@ -217,4 +309,18 @@ fun StreamScreen(
       )
     }
   }
+}
+
+// Funcion auxiliar para mostrar el resultado en StreamScreen
+private suspend fun handleUploadResponse(context: android.content.Context, response: String?) {
+    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+        if (response != null) {
+            println("[StreamScreen] Exito. Respuesta del LLM: $response")
+            android.widget.Toast.makeText(context, "¡Éxito, envío y análisis completados!", android.widget.Toast.LENGTH_LONG).show()
+        }
+        else {
+            println("[StreamScreen] Error al enviar el archivo.")
+            android.widget.Toast.makeText(context, "Error al enviar el archivo al servidor", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
 }
