@@ -24,6 +24,9 @@
 
 package com.meta.wearable.dat.externalsampleapps.cameraaccess.ui
 
+import android.R
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -60,14 +63,24 @@ import com.meta.wearable.dat.core.types.PermissionStatus
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.BuildConfig
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
-
+import androidx.compose.ui.composed
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.retrofit.FileViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.graphics.Color
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CameraAccessScaffold(
     viewModel: WearablesViewModel,
     onRequestWearablesPermission: suspend (Permission) -> PermissionStatus,
     modifier: Modifier = Modifier,
+    fileViewModel: FileViewModel = viewModel()
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   val snackbarHostState = remember { SnackbarHostState() }
@@ -75,6 +88,11 @@ fun CameraAccessScaffold(
 
   // Estado para controlar si el menu de subir archivos esta visible
   var isUploadMenuVisible by remember { androidx.compose.runtime.mutableStateOf(false) }
+
+  // Variables para el envio de archivos
+  val context = androidx.compose.ui.platform.LocalContext.current
+  val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+  var isUploading by remember { androidx.compose.runtime.mutableStateOf(false) } // Estado de carga
   // Observe camera permission errors and show snackbar
   LaunchedEffect(uiState.recentError) {
     uiState.recentError?.let { errorMessage ->
@@ -127,14 +145,18 @@ fun CameraAccessScaffold(
           },
       )
 
+
       // Boton flotante para abrir el menu de enviar archivos
-      FloatingActionButton(
-          onClick = { isUploadMenuVisible = true},
-          modifier = Modifier.align(Alignment.CenterStart),
-          containerColor = AppColor.DeepBlue,
-          contentColor = androidx.compose.ui.graphics.Color.White
-      ) {
-          Icon(Icons.Default.CloudUpload, contentDescription = "Upload file")
+      // Solo se muestra si no se esta en el estado de streaming
+      if (!uiState.isStreaming) {
+          FloatingActionButton(
+              onClick = { isUploadMenuVisible = true},
+              modifier = Modifier.align(Alignment.CenterStart),
+              containerColor = AppColor.DeepBlue,
+              contentColor = androidx.compose.ui.graphics.Color.White
+          ) {
+              Icon(Icons.Default.CloudUpload, contentDescription = "Upload file")
+          }
       }
 
       // BottomSheet que muestra UploadMediaScreen
@@ -147,21 +169,47 @@ fun CameraAccessScaffold(
                   onVideoSelected = { uri ->
                       println("[Upload] Video seleccionado: $uri")
                       isUploadMenuVisible = false
+                      uploadUriToServer(uri, "video/mp4", context, coroutineScope, fileViewModel) { isUploading = it }
                       // TODO: convertir uri a file y enviarlo a retrofit
                   },
                   onImageSelected = { uri ->
                       println("[Upload] Imagen seleccionado: $uri")
                       isUploadMenuVisible = false
+                      uploadUriToServer(uri, "image/jpeg", context, coroutineScope, fileViewModel) { isUploading = it }
                       // TODO: convertir uri a file y enviarlo a retrofit
                   },
                   onAudioSelected = { uri ->
                       println("[Upload] Audio seleccionado (desde video): $uri")
                       isUploadMenuVisible = false
+                      uploadUriToServer(uri, "audio/mp4", context, coroutineScope, fileViewModel) { isUploading = it }
                       // TODO: convertir uri a file y enviarlo a retrofit
                   }
               )
           }
       }
+        if (isUploading) {
+            Box (
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .clickable(enabled = false) {}, // para evitar que el usuario toque otras cosas
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ){
+                    CircularProgressIndicator(
+                        color = AppColor.Green
+                    )
+                    Text(
+                        text = "Sending to server...",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+            }
+        }
       if (BuildConfig.DEBUG) {
         FloatingActionButton(
             onClick = { viewModel.showDebugMenu() },
@@ -182,4 +230,62 @@ fun CameraAccessScaffold(
       }
     }
   }
+}
+
+// Funcion que convierte la Uri a archivo y enviar por retrofit
+private fun uploadUriToServer(
+    uri: android.net.Uri,
+    mimeType: String,
+    context: android.content.Context,
+    coroutineScope: kotlinx.coroutines.CoroutineScope,
+    fileViewModel: FileViewModel,
+    setLoadingState: (Boolean) -> Unit
+) {
+    coroutineScope.launch {
+        setLoadingState(true) // mostrar spinner de cargando
+
+        val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                // Copiar la Uri de la galeria a un archivo temporal en nuestra cache
+                val inputStream = context.contentResolver.openInputStream(uri)
+                // Determinar la extension en base al tipo de archivo que se va a enviar
+                val extension = if(mimeType.contains("image")) ".jpg" else ".mp4"
+                val tempFile = java.io.File(context.cacheDir, "upload_temp_${System.currentTimeMillis()}$extension")
+                inputStream?.use { input ->
+                    tempFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                tempFile
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
+
+        if (file != null && file.exists()) {
+            // Enviar el archivo por retrofit
+            val response = fileViewModel.sendFile(
+                physicalFile = file,
+                typeMime = mimeType,
+                nameBackend = "file"
+            )
+
+            // Mostrar feedback al usuario
+            if(response != null) {
+                println("[Upload] Respuesta del LLM: $response")
+                android.widget.Toast.makeText(context, "¡Éxito, envío completado!", android.widget.Toast.LENGTH_LONG).show()
+            } else {
+                println("[Upload] Error al enviar el archivo")
+                android.widget.Toast.makeText(context, "Error al enviar al servidor.", android.widget.Toast.LENGTH_LONG).show()
+            }
+
+            // Borrar el archivo temporal
+            file.delete()
+        } else {
+            android.widget.Toast.makeText(context, "Error al leer el archivo de la galería.", android.widget.Toast.LENGTH_LONG).show()
+        }
+
+        setLoadingState(false) // ocultar spinner
+    }
 }

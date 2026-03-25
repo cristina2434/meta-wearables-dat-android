@@ -109,7 +109,7 @@ fun StreamScreen(
                 // Lanzar la corrutina para enviar el video y apagar
                 coroutineScope.launch{
                     // println("[StreamScreen] Boton stop stream pulsado. Iniciando envio del video simulado")
-                    println("[StreamScreen] Boton stop stream pulsado. Iniciando envio del video")
+                    println("[StreamScreen] Boton stop stream pulsado. Deteniendo y guardando grabacion.")
                     // Pedir a StreamViewModel el archivo fisico
 
                     //val audioFile = streamViewModel.sendSimulatedAudio(context)
@@ -131,31 +131,42 @@ fun StreamScreen(
 //                        println("[StreamScreen] Respuesta del LLM: $llmRespone")
 //                    }
 
-                    // Envio de video
                     // Detener grabacion de video y obtener el archivo
                     val videoFile = streamViewModel.stopVideoRecordingAndGetFile()
 
                     // Detener stream inmediatamente, para cancelar videoJob y evitar que entren mas fotogramas
-                    // mientras la app esta ocupada enviado el archivo por red
                     streamViewModel.stopStream()
 
-                    // Enviar a Retrofit
-                    if(videoFile != null) {
-                        // Guardar en galeria
+                    // Guardar en galeria
+                    if (videoFile != null) {
                         streamViewModel.saveVideoToGallery(videoFile)
-                        val llmResponse = fileViewModel.sendFile(
-                            physicalFile = videoFile,
-                            typeMime = "video/mp4",
-                            nameBackend = "file"
-                        )
-                        if(llmResponse != null) {
-                            println("[StreamScreen] Respuesta del LLM: $llmResponse")
-                        }
+                        println("[StreamScreen] Video guardado en galeria")
+//                        val llmResponse = fileViewModel.sendFile(
+//                            physicalFile = videoFile,
+//                            typeMime = "video/mp4",
+//                            nameBackend = "file"
+//                        )
+//                        if(llmResponse != null) {
+//                            println("[StreamScreen] Respuesta del LLM: $llmResponse")
+//                        }
                     } else{
                         println("[StreamScreen] No se pudo obtener el archivo de video")
                     }
-                    // Una vez enviado, apagar el stream
-                    // streamViewModel.stopStream()
+//                    // Enviar a Retrofit
+//                    if(videoFile != null) {
+//                        // Guardar en galeria
+//                        streamViewModel.saveVideoToGallery(videoFile)
+//                        val llmResponse = fileViewModel.sendFile(
+//                            physicalFile = videoFile,
+//                            typeMime = "video/mp4",
+//                            nameBackend = "file"
+//                        )
+//                        if(llmResponse != null) {
+//                            println("[StreamScreen] Respuesta del LLM: $llmResponse")
+//                        }
+//                    } else{
+//                        println("[StreamScreen] No se pudo obtener el archivo de video")
+//                    }
                     wearablesViewModel.navigateToDeviceSelection()
                 }
             },
@@ -169,24 +180,24 @@ fun StreamScreen(
                 //streamViewModel.capturePhoto()
                 // Lanzar corrutina al pulsar el boton
                 coroutineScope.launch {
-                    println("[StreamScreen] Boton pulsado: iniciando flujo de captura y envio")
+                    println("[StreamScreen] Boton capturar foto pulsado")
 
                     // Guardar la imagen en la galeria
                     streamUiState.videoFrame?.let { fotograma ->
                         streamViewModel.saveToGallery(fotograma)
-
+                        println("[StreamScreen] Foto guardada en galeria")
                     }
-                    // Interceptar y guardar la imagen
-                    val saveFile = streamViewModel.saveCurrentFrame(context)
-
-                    // Si se ha guardado bien, pedimos al gestor de red que envie el archivo fisico
-                    if (saveFile != null) {
-                        fileViewModel.sendFile(
-                            physicalFile = saveFile,
-                            typeMime = "image/jpeg",
-                            nameBackend = "file"
-                        )
-                    }
+//                    // Interceptar y guardar la imagen
+//                    val saveFile = streamViewModel.saveCurrentFrame(context)
+//
+//                    // Si se ha guardado bien, pedimos al gestor de red que envie el archivo fisico
+//                    if (saveFile != null) {
+//                        fileViewModel.sendFile(
+//                            physicalFile = saveFile,
+//                            typeMime = "image/jpeg",
+//                            nameBackend = "file"
+//                        )
+//                    }
                 }
             },
         )

@@ -487,6 +487,7 @@ class StreamViewModel(
           resolver.update(uri, contentValues, null, null)
         }
 
+
         // Informar con un mensaje en pantalla para confirmar
         viewModelScope.launch(Dispatchers.Main) {
           Toast.makeText(context, "¡Foto guardada en la galería!", Toast.LENGTH_SHORT).show()
@@ -686,6 +687,11 @@ class StreamViewModel(
           contentValues.clear()
           contentValues.put(MediaStore.Video.Media.IS_PENDING, 0)
           resolver.update(uri, contentValues, null, null)
+        }
+
+        // Borrar el archivo temporal de la cache porque ya esta en la galeria
+        if(videoFile.exists()) {
+          videoFile.delete()
         }
 
         viewModelScope.launch(Dispatchers.Main) {
