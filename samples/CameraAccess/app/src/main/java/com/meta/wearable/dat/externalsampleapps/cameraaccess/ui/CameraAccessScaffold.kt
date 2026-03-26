@@ -72,6 +72,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.graphics.Color
 @OptIn(ExperimentalMaterial3Api::class)
@@ -93,6 +94,9 @@ fun CameraAccessScaffold(
   val context = androidx.compose.ui.platform.LocalContext.current
   val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
   var isUploading by remember { androidx.compose.runtime.mutableStateOf(false) } // Estado de carga
+  // Estado para mostrar la respuesta del LLM
+  var llmResponseText by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+  var showResponseDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
   // Observe camera permission errors and show snackbar
   LaunchedEffect(uiState.recentError) {
     uiState.recentError?.let { errorMessage ->
@@ -169,20 +173,26 @@ fun CameraAccessScaffold(
                   onVideoSelected = { uri ->
                       println("[Upload] Video seleccionado: $uri")
                       isUploadMenuVisible = false
-                      uploadUriToServer(uri, "video/mp4", context, coroutineScope, fileViewModel) { isUploading = it }
-                      // TODO: convertir uri a file y enviarlo a retrofit
+                      uploadUriToServer(uri, "video/mp4", context, coroutineScope, fileViewModel, { isUploading = it })  { text ->
+                          llmResponseText = text
+                          showResponseDialog = true
+                      }
                   },
                   onImageSelected = { uri ->
                       println("[Upload] Imagen seleccionado: $uri")
                       isUploadMenuVisible = false
-                      uploadUriToServer(uri, "image/jpeg", context, coroutineScope, fileViewModel) { isUploading = it }
-                      // TODO: convertir uri a file y enviarlo a retrofit
+                      uploadUriToServer(uri, "image/jpeg", context, coroutineScope, fileViewModel, { isUploading = it }) { text ->
+                          llmResponseText = text
+                          showResponseDialog = true
+                      }
                   },
                   onAudioSelected = { uri ->
                       println("[Upload] Audio seleccionado (desde video): $uri")
                       isUploadMenuVisible = false
-                      uploadUriToServer(uri, "audio/mp4", context, coroutineScope, fileViewModel) { isUploading = it }
-                      // TODO: convertir uri a file y enviarlo a retrofit
+                      uploadUriToServer(uri, "audio/mp4", context, coroutineScope, fileViewModel, { isUploading = it }) { text ->
+                          llmResponseText = text
+                          showResponseDialog = true
+                      }
                   }
               )
           }
@@ -210,6 +220,31 @@ fun CameraAccessScaffold(
                 }
             }
         }
+      // Dialogo para mostrar la respuesta del LLM
+      if (showResponseDialog && llmResponseText != null) {
+          androidx.compose.material3.AlertDialog(
+              onDismissRequest = {
+                  showResponseDialog = false
+              },
+              title = { androidx.compose.material3.Text("LLM Response")},
+              text = {
+                  androidx.compose.foundation.layout.Column(
+                      modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())
+                  ) {
+                      androidx.compose.material3.Text(llmResponseText!!)
+                  }
+              },
+              confirmButton = {
+                  androidx.compose.material3.TextButton(
+                      onClick = {
+                          showResponseDialog = false
+                      }
+                  ) {
+                      androidx.compose.material3.Text("Close")
+                  }
+              }
+          )
+      }
       if (BuildConfig.DEBUG) {
         FloatingActionButton(
             onClick = { viewModel.showDebugMenu() },
@@ -239,7 +274,8 @@ private fun uploadUriToServer(
     context: android.content.Context,
     coroutineScope: kotlinx.coroutines.CoroutineScope,
     fileViewModel: FileViewModel,
-    setLoadingState: (Boolean) -> Unit
+    setLoadingState: (Boolean) -> Unit,
+    onSuccess: (String) -> Unit
 ) {
     coroutineScope.launch {
         setLoadingState(true) // mostrar spinner de cargando
@@ -274,7 +310,8 @@ private fun uploadUriToServer(
             // Mostrar feedback al usuario
             if(response != null) {
                 println("[Upload] Respuesta del LLM: $response")
-                android.widget.Toast.makeText(context, "¡Éxito, envío completado!", android.widget.Toast.LENGTH_LONG).show()
+                onSuccess(response) // Llamar al callback
+                //android.widget.Toast.makeText(context, "¡Éxito, envío completado!", android.widget.Toast.LENGTH_LONG).show()
             } else {
                 println("[Upload] Error al enviar el archivo")
                 android.widget.Toast.makeText(context, "Error al enviar al servidor.", android.widget.Toast.LENGTH_LONG).show()

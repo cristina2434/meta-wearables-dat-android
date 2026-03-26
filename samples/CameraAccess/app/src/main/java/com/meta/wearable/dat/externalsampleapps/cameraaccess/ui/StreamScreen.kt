@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,6 +47,7 @@ import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.Wearables
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import com.meta.wearable.acdc.BtcLeaseResponseSuccess
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.mockdevicekit.MockDeviceKitViewModel
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.retrofit.FileViewModel
 import kotlinx.coroutines.launch
@@ -79,6 +81,9 @@ fun StreamScreen(
   var recordedVideoFile by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<java.io.File?>(null)}
   // Estado de carga para el envio
   var isUploading by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+  // Estado para mostrar la respuesta del LLM
+  var llmResponseText by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+  var showResponseDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
   LaunchedEffect(Unit) {
       // Pasar la Uri del MockDevice al StreamViewModel
       MockDeviceKitViewModel.lastSelectedVideoUri?.let {
@@ -238,13 +243,17 @@ fun StreamScreen(
                           isUploading = true
                           recordedVideoFile?.let { file ->
                               println("[StreamScreen] Enviando video.")
-                              val response = fileViewModel.sendFile(file, "video/mp4", "file")
-                              handleUploadResponse(context, response)
+                              //val response = fileViewModel.sendFile(file, "video/mp4", "file")
+                              val response = fileViewModel.sendSimulatedFile(file, "video/mp4", "file")
+                              handleUploadResponse(context, response) { text ->
+                                  llmResponseText = text
+                                  showResponseDialog = true
+                              }
 
                               file.delete()
                           }
                           isUploading = false
-                          wearablesViewModel.navigateToDeviceSelection()
+                          //wearablesViewModel.navigateToDeviceSelection()
                       }
                   }
               ) {
@@ -260,12 +269,15 @@ fun StreamScreen(
                           recordedVideoFile?.let { file ->
                               println("[StreamScreen] Enviando solo audio.")
                               val response = fileViewModel.sendFile(file, "audio/mp4", "file")
-                              handleUploadResponse(context, response)
+                              handleUploadResponse(context, response) { text ->
+                                  llmResponseText = text
+                                  showResponseDialog = true
+                              }
 
                               file.delete()
                           }
                           isUploading = false
-                          wearablesViewModel.navigateToDeviceSelection()
+                          //wearablesViewModel.navigateToDeviceSelection()
                       }
                   }
               ) {
@@ -297,6 +309,34 @@ fun StreamScreen(
           }
       }
   }
+
+  // Dialogo para mostrar la respuesta del LLM
+  if (showResponseDialog && llmResponseText != null) {
+      androidx.compose.material3.AlertDialog(
+          onDismissRequest = {
+              showResponseDialog = false
+              wearablesViewModel.navigateToDeviceSelection()
+          },
+          title = { androidx.compose.material3.Text("LLM Response")},
+          text = {
+              androidx.compose.foundation.layout.Column(
+                  modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())
+              ) {
+                  androidx.compose.material3.Text(llmResponseText!!)
+              }
+          },
+          confirmButton = {
+              androidx.compose.material3.TextButton(
+                  onClick = {
+                      showResponseDialog = false
+                      wearablesViewModel.navigateToDeviceSelection()
+                  }
+              ) {
+                  androidx.compose.material3.Text("Close")
+              }
+          }
+      )
+  }
   streamUiState.capturedPhoto?.let { photo ->
     if (streamUiState.isShareDialogVisible) {
       SharePhotoDialog(
@@ -312,11 +352,13 @@ fun StreamScreen(
 }
 
 // Funcion auxiliar para mostrar el resultado en StreamScreen
-private suspend fun handleUploadResponse(context: android.content.Context, response: String?) {
+// Onsuccess -> callback para exito
+private suspend fun handleUploadResponse(context: android.content.Context, response: String?, onSuccess: (String) -> Unit ) {
     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
         if (response != null) {
             println("[StreamScreen] Exito. Respuesta del LLM: $response")
-            android.widget.Toast.makeText(context, "¡Éxito, envío y análisis completados!", android.widget.Toast.LENGTH_LONG).show()
+            onSuccess(response) // LLamar al callback con la respuesta
+            //android.widget.Toast.makeText(context, "¡Éxito, envío y análisis completados!", android.widget.Toast.LENGTH_LONG).show()
         }
         else {
             println("[StreamScreen] Error al enviar el archivo.")

@@ -53,6 +53,33 @@ class FileViewModel : ViewModel() {
         }
     }
 
+    suspend fun sendSimulatedFile(physicalFile: File, typeMime: String, nameBackend: String): String? {
+        return try {
+            print("[FileViewModel] MODO MOCK ACTIVADO")
+            println("[FileViewModel]Simulando empaquetando archivo: ${physicalFile.name} ($typeMime)")
+            val requestBody = physicalFile.asRequestBody(typeMime.toMediaTypeOrNull())
+
+            // Simular tiempo de espara del servidor
+            kotlinx.coroutines.delay(4000)
+
+            // Lista de respuestas falsas
+            val mockResponses = listOf(
+                "1) Palabras repetidas:\n   - Frecuencia baja: \"gafas\" (1 vez), \"aplicación\" (1 vez).\n   - Ejemplos textuales: \"probando estas gafas\" y \"y la aplicación\".\n\n2) Frases repetidas:\n   - No se detectan repeticiones innecesarias.\n\n3) Muletillas:\n   - Frecuencia baja: \"y\" (2 veces en una frase corta)",
+                "No hay evidencia suficiente para realizar un análisis basado en la transcripción \"Hola, buenos días\", ya que es una expresión muy breve y no contiene elementos suficientes para evaluar los aspectos solicitados."
+            )
+            // Elegir respuesta al azar
+            val llmResponse = mockResponses.random()
+
+            println("[FileViewModel]¡Éxito! Respuesta simulada devuelta correctamente.")
+
+            // Devolver respuesta falsa
+            llmResponse
+        }catch (e: Exception) {
+            println("[FileViewModel]Error de red o de proceso: ${e.localizedMessage}")
+            null
+        }
+    }
+
     // Wrapper no-suspend para llamadas "fire and forget" desde la UI si no necesitas el resultado
     fun sendFileAsync(physicalFile: File, typeMime: String, nameBackend: String) {
         viewModelScope.launch {
