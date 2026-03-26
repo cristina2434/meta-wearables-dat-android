@@ -104,9 +104,10 @@ fun CameraAccessScaffold(
   var tts by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<android.speech.tts.TextToSpeech?>(null) }
     // Inicializar el motor y configurarlo para que se destruya al salir
     androidx.compose.runtime.DisposableEffect(context) {
-        val ttsEngine = TextToSpeech(context) { status ->
+        var ttsEngine: TextToSpeech? = null
+        ttsEngine = TextToSpeech(context) { status ->
             if(status == TextToSpeech.SUCCESS) {
-                tts?.language = Locale("en", "EN")
+                ttsEngine?.language = Locale("es", "ES")
                 println("[StreamScreen] Motor TTS iniacializado correctamente")
             } else {
                 println("[StreamScreen] Error al inicializar el motor TTS")
