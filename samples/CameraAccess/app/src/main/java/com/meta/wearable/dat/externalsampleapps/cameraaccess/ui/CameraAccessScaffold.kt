@@ -75,6 +75,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.graphics.Color
+import android.speech.tts.TextToSpeech
+import java.util.Locale
+import androidx.compose.runtime.DisposableEffect
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CameraAccessScaffold(
@@ -97,6 +100,28 @@ fun CameraAccessScaffold(
   // Estado para mostrar la respuesta del LLM
   var llmResponseText by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
   var showResponseDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+  //Text to speach
+  var tts by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<android.speech.tts.TextToSpeech?>(null) }
+    // Inicializar el motor y configurarlo para que se destruya al salir
+    androidx.compose.runtime.DisposableEffect(context) {
+        val ttsEngine = TextToSpeech(context) { status ->
+            if(status == TextToSpeech.SUCCESS) {
+                tts?.language = Locale("en", "EN")
+                println("[StreamScreen] Motor TTS iniacializado correctamente")
+            } else {
+                println("[StreamScreen] Error al inicializar el motor TTS")
+            }
+        }
+
+        tts = ttsEngine
+
+        onDispose {
+            ttsEngine.stop()
+            ttsEngine.shutdown()
+            println("[StreamScreen] Motor TTS apagado y memoria liberada")
+        }
+    }
+
   // Observe camera permission errors and show snackbar
   LaunchedEffect(uiState.recentError) {
     uiState.recentError?.let { errorMessage ->
@@ -176,6 +201,7 @@ fun CameraAccessScaffold(
                       uploadUriToServer(uri, "video/mp4", context, coroutineScope, fileViewModel, { isUploading = it })  { text ->
                           llmResponseText = text
                           showResponseDialog = true
+                          tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
                       }
                   },
                   onImageSelected = { uri ->
@@ -184,6 +210,7 @@ fun CameraAccessScaffold(
                       uploadUriToServer(uri, "image/jpeg", context, coroutineScope, fileViewModel, { isUploading = it }) { text ->
                           llmResponseText = text
                           showResponseDialog = true
+                          tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
                       }
                   },
                   onAudioSelected = { uri ->
@@ -192,6 +219,7 @@ fun CameraAccessScaffold(
                       uploadUriToServer(uri, "audio/mp4", context, coroutineScope, fileViewModel, { isUploading = it }) { text ->
                           llmResponseText = text
                           showResponseDialog = true
+                          tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
                       }
                   }
               )

@@ -51,6 +51,9 @@ import com.meta.wearable.acdc.BtcLeaseResponseSuccess
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.mockdevicekit.MockDeviceKitViewModel
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.retrofit.FileViewModel
 import kotlinx.coroutines.launch
+import android.speech.tts.TextToSpeech
+import java.util.Locale
+import androidx.compose.runtime.DisposableEffect
 @Composable
 // Cambio la declaracion para usar mi ViewModel
 fun StreamScreen(
@@ -84,6 +87,28 @@ fun StreamScreen(
   // Estado para mostrar la respuesta del LLM
   var llmResponseText by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
   var showResponseDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+  //Text to speach
+  var tts by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<android.speech.tts.TextToSpeech?>(null) }
+
+  // Inicializar el motor y configurarlo para que se destruya al salir
+  androidx.compose.runtime.DisposableEffect(context) {
+      val ttsEngine = TextToSpeech(context) { status ->
+          if(status == TextToSpeech.SUCCESS) {
+              tts?.language = Locale("en", "EN")
+              println("[StreamScreen] Motor TTS iniacializado correctamente")
+          } else {
+              println("[StreamScreen] Error al inicializar el motor TTS")
+          }
+      }
+
+      tts = ttsEngine
+
+      onDispose {
+          ttsEngine.stop()
+          ttsEngine.shutdown()
+          println("[StreamScreen] Motor TTS apagado y memoria liberada")
+      }
+  }
   LaunchedEffect(Unit) {
       // Pasar la Uri del MockDevice al StreamViewModel
       MockDeviceKitViewModel.lastSelectedVideoUri?.let {
@@ -248,6 +273,7 @@ fun StreamScreen(
                               handleUploadResponse(context, response) { text ->
                                   llmResponseText = text
                                   showResponseDialog = true
+                                  tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
                               }
 
                               file.delete()
@@ -272,6 +298,7 @@ fun StreamScreen(
                               handleUploadResponse(context, response) { text ->
                                   llmResponseText = text
                                   showResponseDialog = true
+                                  tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
                               }
 
                               file.delete()
@@ -315,6 +342,7 @@ fun StreamScreen(
       androidx.compose.material3.AlertDialog(
           onDismissRequest = {
               showResponseDialog = false
+              tts?.stop()
               wearablesViewModel.navigateToDeviceSelection()
           },
           title = { androidx.compose.material3.Text("LLM Response")},
@@ -329,6 +357,7 @@ fun StreamScreen(
               androidx.compose.material3.TextButton(
                   onClick = {
                       showResponseDialog = false
+                      tts?.stop()
                       wearablesViewModel.navigateToDeviceSelection()
                   }
               ) {
