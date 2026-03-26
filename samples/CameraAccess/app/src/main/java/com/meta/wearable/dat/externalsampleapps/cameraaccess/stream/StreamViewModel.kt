@@ -115,7 +115,7 @@ class StreamViewModel(
         Wearables.startStreamSession(
                 getApplication(),
                 deviceSelector,
-                StreamConfiguration(videoQuality = VideoQuality.MEDIUM, 24),
+                StreamConfiguration(videoQuality = VideoQuality.HIGH, 24),
             )
             .also { streamSession = it }
     // Reproducir audio en paralelo
@@ -608,8 +608,8 @@ class StreamViewModel(
         // Resolucion: mantener la que manda las gafas para no deformar
         setVideoSize(width, height)
         setVideoFrameRate(24)
-        setVideoEncodingBitRate(1200000)
-        setAudioEncodingBitRate(64000)
+        setVideoEncodingBitRate(3000000)
+        setAudioEncodingBitRate(128000)
         setAudioSamplingRate(44100)
         setOutputFile(videoFile.absolutePath)
 
@@ -726,23 +726,3 @@ class StreamViewModel(
     }
   }
 }
-/*
-         // En un futuro llamar a RetrofitClient para enviar este archivo
-         // Enviar el fotograma capturado por Retrofit
-         println("Empaquetando la imagen para enviarla")
-         val requestBody = photoFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
-         val multipartPackage = MultipartBody.Part.createFormData(
-           "archivo_imagen", //
-           photoFile.name,
-           requestBody
-         )
-
-         println("Enviando al servidor a traves de Retrofit")
-         // Llamar a la API
-         val response = RetrofitClient.api.uploadFile(multipartPackage)
-         if(response.isSuccessful) {
-           println("¡Subida al servidor completada con exito!")
-         }
-         else {
-           println("Error del servidor: Codigo ${response.code()}")
-         }*/
