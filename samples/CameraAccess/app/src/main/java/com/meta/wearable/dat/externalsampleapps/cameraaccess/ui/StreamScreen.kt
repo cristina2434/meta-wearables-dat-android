@@ -52,8 +52,12 @@ import com.meta.wearable.dat.externalsampleapps.cameraaccess.mockdevicekit.MockD
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.retrofit.FileViewModel
 import kotlinx.coroutines.launch
 import android.speech.tts.TextToSpeech
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material3.MaterialTheme
 import java.util.Locale
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.modifier.modifierLocalConsumer
+
 @Composable
 // Cambio la declaracion para usar mi ViewModel
 fun StreamScreen(
@@ -85,8 +89,13 @@ fun StreamScreen(
   // Estado de carga para el envio
   var isUploading by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
   // Estado para mostrar la respuesta del LLM
-  var llmResponseText by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
-  var showResponseDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+  //var llmResponseText by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+  //var showResponseDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    // Lista con historial de respuestas
+    val responseHistory = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateListOf<String>() }
+    // Avisa cuando mostrar el boton de salir
+    var isStreamStopped by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
   //Text to speach
   var tts by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<android.speech.tts.TextToSpeech?>(null) }
 
@@ -149,6 +158,7 @@ fun StreamScreen(
             onClick = {
                 // Lanzar la corrutina para enviar el video y apagar
                 coroutineScope.launch{
+                    isStreamStopped = true
                     // println("[StreamScreen] Boton stop stream pulsado. Iniciando envio del video simulado")
                     println("[StreamScreen] Boton stop stream pulsado. Deteniendo y guardando grabacion.")
                     // Pedir a StreamViewModel el archivo fisico
@@ -272,8 +282,10 @@ fun StreamScreen(
                               //val response = fileViewModel.sendFile(file, "video/mp4", "file")
                               val response = fileViewModel.sendSimulatedFile(file, "video/mp4", "file")
                               handleUploadResponse(context, response) { text ->
-                                  llmResponseText = text
-                                  showResponseDialog = true
+                                 // llmResponseText = text
+                                 // showResponseDialog = true
+                                  // Añadir la respuesta al historial
+                                  responseHistory.add(text)
                                   tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
                               }
 
@@ -297,8 +309,10 @@ fun StreamScreen(
                               println("[StreamScreen] Enviando solo audio.")
                               val response = fileViewModel.sendFile(file, "audio/mp4", "file")
                               handleUploadResponse(context, response) { text ->
-                                  llmResponseText = text
-                                  showResponseDialog = true
+                                  //llmResponseText = text
+                                  //showResponseDialog = true
+                                  // Añadir la respuesta al historial
+                                  responseHistory.add(text)
                                   tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
                               }
 
@@ -338,47 +352,101 @@ fun StreamScreen(
       }
   }
 
-  // Dialogo para mostrar la respuesta del LLM
-  if (showResponseDialog && llmResponseText != null) {
-      androidx.compose.material3.AlertDialog(
-          onDismissRequest = {
-              showResponseDialog = false
-              tts?.stop()
-              wearablesViewModel.navigateToDeviceSelection()
-          },
-          title = { androidx.compose.material3.Text("LLM Response")},
-          text = {
-              androidx.compose.foundation.layout.Column(
-                  modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())
-              ) {
-                  androidx.compose.material3.Text(llmResponseText!!)
-              }
-          },
-          confirmButton = {
-              androidx.compose.material3.TextButton(
-                  onClick = {
-                      showResponseDialog = false
-                      tts?.stop()
-                      wearablesViewModel.navigateToDeviceSelection()
-                  }
-              ) {
-                  androidx.compose.material3.Text("Close")
-              }
-          }
-      )
-  }
-  streamUiState.capturedPhoto?.let { photo ->
-    if (streamUiState.isShareDialogVisible) {
-      SharePhotoDialog(
-          photo = photo,
-          onDismiss = { streamViewModel.hideShareDialog() },
-          onShare = { bitmap ->
-            streamViewModel.sharePhoto(bitmap)
-            streamViewModel.hideShareDialog()
-          },
-      )
-    }
-  }
+    // UI historico de respuestas
+    if(responseHistory.isNotEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(androidx.compose.ui.graphics.Color(0xFF121212))
+                    .padding(24.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Titulo
+                    androidx.compose.material3.Text(
+                        text = "History of analysis results",
+                        color = androidx.compose.ui.graphics.Color.White,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        modifier = Modifier.padding(top = 32.dp, bottom = 16.dp)
+                    )
+
+                    // Respuesta
+                    androidx.compose.foundation.lazy.LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(responseHistory.size) { index ->
+                            androidx.compose.material3.Text(
+                                text = "IA: ${responseHistory[index]}",
+                                color = androidx.compose.ui.graphics.Color.LightGray,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            androidx.compose.material3.Divider(
+                                color = androidx.compose.ui.graphics.Color.DarkGray,
+                                modifier = Modifier.padding(top = 12.dp)
+                            )
+                        }
+                    }
+
+                    // Boton para salir cuando termina de leer
+                    if(isStreamStopped) {
+                        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp))
+                        SwitchButton(
+                            label = "Close and back to menu",
+                            onClick = {
+                                tts?.stop()
+                                wearablesViewModel.navigateToDeviceSelection()
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 16.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+//  // Dialogo para mostrar la respuesta del LLM
+//  if (showResponseDialog && llmResponseText != null) {
+//      androidx.compose.material3.AlertDialog(
+//          onDismissRequest = {
+//              showResponseDialog = false
+//              tts?.stop()
+//              wearablesViewModel.navigateToDeviceSelection()
+//          },
+//          title = { androidx.compose.material3.Text("LLM Response")},
+//          text = {
+//              androidx.compose.foundation.layout.Column(
+//                  modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())
+//              ) {
+//                  androidx.compose.material3.Text(llmResponseText!!)
+//              }
+//          },
+//          confirmButton = {
+//              androidx.compose.material3.TextButton(
+//                  onClick = {
+//                      showResponseDialog = false
+//                      tts?.stop()
+//                      wearablesViewModel.navigateToDeviceSelection()
+//                  }
+//              ) {
+//                  androidx.compose.material3.Text("Close")
+//              }
+//          }
+//      )
+//  }
+//  streamUiState.capturedPhoto?.let { photo ->
+//    if (streamUiState.isShareDialogVisible) {
+//      SharePhotoDialog(
+//          photo = photo,
+//          onDismiss = { streamViewModel.hideShareDialog() },
+//          onShare = { bitmap ->
+//            streamViewModel.sharePhoto(bitmap)
+//            streamViewModel.hideShareDialog()
+//          },
+//      )
+//    }
+//  }
 }
 
 // Funcion auxiliar para mostrar el resultado en StreamScreen

@@ -76,8 +76,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.graphics.Color
 import android.speech.tts.TextToSpeech
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import java.util.Locale
 import androidx.compose.runtime.DisposableEffect
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CameraAccessScaffold(
@@ -98,8 +102,10 @@ fun CameraAccessScaffold(
   val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
   var isUploading by remember { androidx.compose.runtime.mutableStateOf(false) } // Estado de carga
   // Estado para mostrar la respuesta del LLM
-  var llmResponseText by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
-  var showResponseDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+ // var llmResponseText by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+  //var showResponseDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    // Lista del historial global
+    val responseHistory = remember { androidx.compose.runtime.mutableStateListOf<String>() }
   //Text to speach
   var tts by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<android.speech.tts.TextToSpeech?>(null) }
     // Inicializar el motor y configurarlo para que se destruya al salir
@@ -200,8 +206,9 @@ fun CameraAccessScaffold(
                       println("[Upload] Video seleccionado: $uri")
                       isUploadMenuVisible = false
                       uploadUriToServer(uri, "video/mp4", context, coroutineScope, fileViewModel, { isUploading = it })  { text ->
-                          llmResponseText = text
-                          showResponseDialog = true
+//                          llmResponseText = text
+//                          showResponseDialog = true
+                          responseHistory.add(text)
                           tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
                       }
                   },
@@ -209,8 +216,9 @@ fun CameraAccessScaffold(
                       println("[Upload] Imagen seleccionado: $uri")
                       isUploadMenuVisible = false
                       uploadUriToServer(uri, "image/jpeg", context, coroutineScope, fileViewModel, { isUploading = it }) { text ->
-                          llmResponseText = text
-                          showResponseDialog = true
+//                          llmResponseText = text
+//                          showResponseDialog = true
+                          responseHistory.add(text)
                           tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
                       }
                   },
@@ -218,8 +226,9 @@ fun CameraAccessScaffold(
                       println("[Upload] Audio seleccionado (desde video): $uri")
                       isUploadMenuVisible = false
                       uploadUriToServer(uri, "audio/mp4", context, coroutineScope, fileViewModel, { isUploading = it }) { text ->
-                          llmResponseText = text
-                          showResponseDialog = true
+//                          llmResponseText = text
+//                          showResponseDialog = true
+                          responseHistory.add(text)
                           tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
                       }
                   }
@@ -249,31 +258,82 @@ fun CameraAccessScaffold(
                 }
             }
         }
-      // Dialogo para mostrar la respuesta del LLM
-      if (showResponseDialog && llmResponseText != null) {
-          androidx.compose.material3.AlertDialog(
-              onDismissRequest = {
-                  showResponseDialog = false
-              },
-              title = { androidx.compose.material3.Text("LLM Response")},
-              text = {
-                  androidx.compose.foundation.layout.Column(
-                      modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())
-                  ) {
-                      androidx.compose.material3.Text(llmResponseText!!)
-                  }
-              },
-              confirmButton = {
-                  androidx.compose.material3.TextButton(
-                      onClick = {
-                          showResponseDialog = false
-                      }
-                  ) {
-                      androidx.compose.material3.Text("Close")
-                  }
-              }
-          )
-      }
+//      // Dialogo para mostrar la respuesta del LLM
+//      if (showResponseDialog && llmResponseText != null) {
+//          androidx.compose.material3.AlertDialog(
+//              onDismissRequest = {
+//                  showResponseDialog = false
+//              },
+//              title = { androidx.compose.material3.Text("LLM Response")},
+//              text = {
+//                  androidx.compose.foundation.layout.Column(
+//                      modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())
+//                  ) {
+//                      androidx.compose.material3.Text(llmResponseText!!)
+//                  }
+//              },
+//              confirmButton = {
+//                  androidx.compose.material3.TextButton(
+//                      onClick = {
+//                          showResponseDialog = false
+//                      }
+//                  ) {
+//                      androidx.compose.material3.Text("Close")
+//                  }
+//              }
+//          )
+//      }
+        // Historico de respuestas en el menu principal
+        if(responseHistory.isNotEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.6f)
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp)
+                    .background(
+                        color = Color.Black.copy(alpha = 0.85f),
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    .padding(16.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("History of analysis results", color = Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        Text(
+                            text = "Clean",
+                            color = Color(0xFF64B5F6),
+                            modifier = Modifier.clickable{
+                                tts?.stop()
+                                responseHistory.clear()
+                            }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    androidx.compose.foundation.lazy.LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(responseHistory.size) { index ->
+                            Text(
+                                text = "IA: ${responseHistory[index]}",
+                                color = Color.LightGray,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            androidx.compose.material3.Divider(
+                                color = Color.DarkGray,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
       if (BuildConfig.DEBUG) {
         FloatingActionButton(
             onClick = { viewModel.showDebugMenu() },
